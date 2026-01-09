@@ -3,7 +3,6 @@ package com.example.move_arm;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicReference;
 
 import com.example.move_arm.model.ClickData;
 import com.example.move_arm.model.User;
@@ -39,6 +38,7 @@ public class HoldGameController {
     private int remainingTime;
     private long gameStartTimeNs;
     private final double HOLD_TIME_SECONDS = 0.5; 
+    private int exitAttempts = 0;
 
     private HoverGameSettings settings;
     private final Random random = new Random();
@@ -110,6 +110,7 @@ public class HoldGameController {
         activeCircles = 0;
         isInitialSpawnDone = false;
         gameStartTimeNs = System.nanoTime();
+        exitAttempts = 0;
 
         remainingTime = settings.getDurationSeconds();
         scoreLabel.setText("Очки: " + score);
@@ -172,12 +173,21 @@ public class HoldGameController {
         if (timer != null) timer.stop();
         gameRoot.getChildren().clear();
 
+        double accuracy = exitAttempts > 0
+        ? (score * 100.0) / exitAttempts
+        : 0.0;
+
         try {
-            int savedId = gameService.addGameClicks(settings.getRadius(), new ArrayList<>(clickData));
+            int savedId = gameService.addGameClicks(
+                    settings.getRadius(),
+                    new ArrayList<>(clickData),
+                    accuracy
+            );
             AppLogger.info("GameController: Результат сохранён в БД (id=" + savedId + ")");
         } catch (Exception e) {
             AppLogger.error("GameController: Ошибка сохранения результата", e);
         }
+
 
         if (widthListener != null) {
             gameRoot.widthProperty().removeListener(widthListener);
@@ -187,7 +197,6 @@ public class HoldGameController {
             gameRoot.heightProperty().removeListener(heightListener);
             heightListener = null;
         }
-        
         SceneManager mgr = (sceneManager != null) ? sceneManager : SceneManager.get();
         if (mgr != null) mgr.showResults(); 
     }
@@ -297,6 +306,12 @@ public class HoldGameController {
             if (cursorXList.size() > 100) {
                 cursorXList.remove(0);
                 cursorYList.remove(0);
+            }
+        });
+
+        target.setOnMouseExited(e -> {
+            if (gameActive) {
+                exitAttempts++;
             }
         });
 

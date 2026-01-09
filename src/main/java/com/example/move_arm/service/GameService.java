@@ -1,16 +1,20 @@
 package com.example.move_arm.service;
 
-import com.example.move_arm.database.ClickDao;
-import com.example.move_arm.database.GameResultDao;
-import com.example.move_arm.database.GameTypeDao;
-import com.example.move_arm.database.UserDao;
-import com.example.move_arm.database.DatabaseManager;
-import com.example.move_arm.model.*;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+
+import com.example.move_arm.database.ClickDao;
+import com.example.move_arm.database.DatabaseManager;
+import com.example.move_arm.database.GameResultDao;
+import com.example.move_arm.database.GameTypeDao;
+import com.example.move_arm.database.UserDao;
+import com.example.move_arm.model.ClickData;
+import com.example.move_arm.model.GameResult;
+import com.example.move_arm.model.GameType;
+import com.example.move_arm.model.Statistics;
+import com.example.move_arm.model.User;
 
 /**
  * GameService — централизованный сервис для:
@@ -146,6 +150,48 @@ public class GameService {
         }
         return resultId;
     }
+    
+    public int addGameClicks(
+            int radius,
+            List<ClickData> clicks,
+            Double hitRateOverride // ← nullable
+    ) {
+        if (clicks == null) clicks = Collections.emptyList();
+
+        lastGameClicks = new ArrayList<>(clicks);
+
+        GameResult result = new GameResult();
+        result.setUserId(currentUser != null ? currentUser.getId() : 0);
+        result.setGameTypeId(getCurrentGameTypeId());
+        result.setRadius(radius);
+        result.setScore(clicks.size());
+
+        long durationMs = 0L;
+        if (clicks.size() >= 2) {
+            long first = clicks.get(0).getClickTimeNs();
+            long last = clicks.get(clicks.size() - 1).getClickTimeNs();
+            durationMs = Math.max(0L, (last - first) / 1_000_000L);
+        }
+        result.setDurationMs(durationMs);
+
+        // ⬇️ ВАЖНОЕ МЕСТО
+        if (hitRateOverride != null) {
+            result.setHitRate(hitRateOverride);
+        } else {
+            result.setHitRate(Statistics.getHitRatePercent(clicks));
+        }
+
+        result.setAvgIntervalMs(Statistics.getAverageClickIntervalMs(clicks));
+        result.setAvgDistancePx(Statistics.getAverageCursorDistance(clicks));
+        result.setAvgSpeed(Statistics.getAverageSpeedPxPerMs(clicks));
+
+        int resultId = gameResultDao.insert(result);
+        if (!clicks.isEmpty()) {
+            clickDao.insertClicks(resultId, clicks);
+        }
+        return resultId;
+    }
+
 
     /**
      * Возвращает клики последней игры (в памяти). Если требуется клики из БД для конкретного resultId,
