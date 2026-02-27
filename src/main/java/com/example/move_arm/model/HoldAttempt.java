@@ -1,53 +1,31 @@
 package com.example.move_arm.model;
 
 public class HoldAttempt {
-
     private final int attemptIndex;
     private final long startTimeNs;
     private final long endTimeNs;
-    private final long requiredHoldMs;
     private final long actualHoldMs;
     private final boolean success;
+    private final double targetCenterX;
+    private final double targetCenterY;
 
-    // ✅ ОСНОВНОЙ конструктор (оставляем как есть)
-    public HoldAttempt(
-            int attemptIndex,
-            long startTimeNs,
-            long endTimeNs,
-            long requiredHoldMs,
-            long actualHoldMs,
-            boolean success
-    ) {
+    public HoldAttempt(int attemptIndex, long startNs, long endNs, 
+                       long actualMs, boolean success, double tx, double ty) {
         this.attemptIndex = attemptIndex;
-        this.startTimeNs = startTimeNs;
-        this.endTimeNs = endTimeNs;
-        this.requiredHoldMs = requiredHoldMs;
-        this.actualHoldMs = actualHoldMs;
+        this.startTimeNs = startNs;
+        this.endTimeNs = endNs;
+        this.actualHoldMs = actualMs;
         this.success = success;
+        this.targetCenterX = tx;
+        this.targetCenterY = ty;
     }
 
-    // ✅ НОВЫЙ конструктор — ДЛЯ ТЕКУЩЕГО КОДА
-    public HoldAttempt(
-            long startTimeNs,
-            long endTimeNs,
-            long requiredHoldMs,
-            long actualHoldMs,
-            boolean success
-    ) {
-        this(
-            -1, // attemptIndex пока не используем
-            startTimeNs,
-            endTimeNs,
-            requiredHoldMs,
-            actualHoldMs,
-            success
-        );
-    }
-
+    // Геттеры для DAO...
     public int getAttemptIndex() { return attemptIndex; }
     public long getStartTimeNs() { return startTimeNs; }
     public long getEndTimeNs() { return endTimeNs; }
-    public long getRequiredHoldMs() { return requiredHoldMs; }
     public long getActualHoldMs() { return actualHoldMs; }
     public boolean isSuccess() { return success; }
+    public double getTargetCenterX() { return targetCenterX; }
+    public double getTargetCenterY() { return targetCenterY; }
 }

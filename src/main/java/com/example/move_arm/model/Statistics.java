@@ -118,4 +118,43 @@ public class Statistics {
             clicks.size(), avgInterval, avgDistance, avgSpeed, avgNormDev
         );
     }
+    // ================= HOLD STATISTICS =================
+
+    public static double getHoldSuccessRatePercent(List<HoldAttempt> attempts) {
+        long success = attempts.stream()
+                .filter(HoldAttempt::isSuccess)
+                .count();
+
+        return attempts.isEmpty()
+                ? 0.0
+                : (success * 100.0) / attempts.size();
+    }
+
+    public static double getAverageHoldDurationMs(List<HoldAttempt> attempts) {
+        return attempts.stream()
+                .mapToLong(HoldAttempt::getActualHoldMs)
+                .average()
+                .orElse(0.0);
+    }
+
+    public static double getAverageHoldIntervalMs(List<HoldAttempt> attempts) {
+        if (attempts.size() < 2) return 0.0;
+
+        double total = 0;
+
+        for (int i = 1; i < attempts.size(); i++) {
+            long prevEnd = attempts.get(i - 1).getEndTimeNs();
+            long currStart = attempts.get(i).getStartTimeNs();
+            total += (currStart - prevEnd) / 1_000_000.0;
+        }
+
+        return total / (attempts.size() - 1);
+    }
+
+    public static double getMaxHoldDurationMs(List<HoldAttempt> attempts) {
+        return attempts.stream()
+                .mapToLong(HoldAttempt::getActualHoldMs)
+                .max()
+                .orElse(0);
+    }
 }

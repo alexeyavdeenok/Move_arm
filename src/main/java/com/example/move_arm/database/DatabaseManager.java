@@ -4,8 +4,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.DriverManager;
-import java.sql.Statement;
 import java.sql.PreparedStatement;
+import java.sql.Statement;
 
 public class DatabaseManager {
 
@@ -107,6 +107,20 @@ public class DatabaseManager {
             s.execute("""
                 INSERT OR IGNORE INTO game_types(name, description)
                 VALUES ('hold', 'Move Arm hold game');
+                """);
+            s.execute("""
+                CREATE TABLE IF NOT EXISTS holds(
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                result_id INTEGER NOT NULL,
+                attempt_index INTEGER NOT NULL,   -- Порядковый номер контакта в игре (1, 2, 3...)
+                start_time_ns INTEGER NOT NULL,
+                end_time_ns INTEGER NOT NULL,
+                actual_hold_ms INTEGER NOT NULL,
+                success INTEGER NOT NULL,         -- 1 (успех), 0 (срыв)
+                target_center_x REAL NOT NULL,    -- Координата X центра круга
+                target_center_y REAL NOT NULL,    -- Координата Y центра круга
+                FOREIGN KEY(result_id) REFERENCES game_results(id)
+                );
                 """);
 
         } catch (Exception e) {
