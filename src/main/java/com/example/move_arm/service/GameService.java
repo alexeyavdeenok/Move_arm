@@ -1,16 +1,22 @@
 package com.example.move_arm.service;
 
-import com.example.move_arm.database.ClickDao;
-import com.example.move_arm.database.GameResultDao;
-import com.example.move_arm.database.GameTypeDao;
-import com.example.move_arm.database.UserDao;
-import com.example.move_arm.database.DatabaseManager;
-import com.example.move_arm.model.*;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+
+import com.example.move_arm.database.ClickDao;
+import com.example.move_arm.database.DatabaseManager;
+import com.example.move_arm.database.GameResultDao;
+import com.example.move_arm.database.GameTypeDao;
+import com.example.move_arm.database.HoldAttemptDao;
+import com.example.move_arm.database.UserDao;
+import com.example.move_arm.model.ClickData;
+import com.example.move_arm.model.GameResult;
+import com.example.move_arm.model.GameType;
+import com.example.move_arm.model.HoldAttempt;
+import com.example.move_arm.model.Statistics;
+import com.example.move_arm.model.User;
 
 /**
  * GameService — централизованный сервис для:
@@ -29,6 +35,7 @@ public class GameService {
     private final GameTypeDao gameTypeDao = new GameTypeDao();
     private final GameResultDao gameResultDao = new GameResultDao();
     private final ClickDao clickDao = new ClickDao();
+    private final HoldAttemptDao holdAttemptDao = new HoldAttemptDao();
     private final DatabaseManager dbManager = DatabaseManager.getInstance();
 
     private User currentUser;
@@ -144,6 +151,44 @@ public class GameService {
         if (!clicks.isEmpty()) {
             clickDao.insertClicks(resultId, clicks);
         }
+        return resultId;
+    }
+
+    public int addHoldGameResults(int radius, List<HoldAttempt> attempts) {
+        if (attempts == null || attempts.isEmpty()) return -1;
+
+        // 2. Считаем честную статистику
+        long totalContacts = attempts.size();
+        long successCount = attempts.stream().filter(HoldAttempt::isSuccess).count();
+        double accuracy = (successCount * 100.0) / totalContacts;
+
+        // 3. Формируем основной результат для таблицы game_results
+        GameResult result = new GameResult();
+        result.setUserId(currentUser != null ? currentUser.getId() : 0);
+        result.setGameTypeId(getCurrentGameTypeId());
+        result.setRadius(radius);
+        result.setScore((int) successCount);
+        result.setHitRate(accuracy);
+        result.setTimestamp(System.currentTimeMillis());
+
+        // Длительность игры от первого до последнего контакта
+        long firstNs = attempts.get(0).getStartTimeNs();
+        long lastNs = attempts.get(attempts.size() - 1).getEndTimeNs();
+        result.setDurationMs((lastNs - firstNs) / 1_000_000L);
+
+        // Расчет средней скорости и дистанции (опционально, можно оставить 0 или рассчитать по успехам)
+        result.setHitRate(Statistics.getHoldSuccessRatePercent(attempts));
+        result.setAvgIntervalMs(Statistics.getAverageHoldIntervalMs(attempts));
+        result.setAvgDistancePx(0); // если для hold не считаем расстояние
+        result.setAvgSpeed(0);      // если нет понятия скорости
+
+        // 4. Сохраняем в БД
+        // Сначала заголовок, чтобы получить resultId
+        int resultId = gameResultDao.insert(result);
+        
+        // Затем детали в hold_attempts
+        holdAttemptDao.insertHoldAttempts(resultId, attempts);
+
         return resultId;
     }
 

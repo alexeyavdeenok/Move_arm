@@ -16,6 +16,10 @@
             <yAxis><NumberAxis label="Очки"/></yAxis>
         </LineChart>
 
+        <HBox fx:id="legendBox"
+              spacing="20"
+              alignment="CENTER"/>
+
         <GridPane fx:id="statsGrid"
                   hgap="20" vgap="10"/>
 

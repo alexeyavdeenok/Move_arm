@@ -3,9 +3,8 @@ package com.example.move_arm;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
-import java.util.concurrent.atomic.AtomicReference;
 
-import com.example.move_arm.model.ClickData;
+import com.example.move_arm.model.HoldAttempt;
 import com.example.move_arm.model.User;
 import com.example.move_arm.model.settings.HoverGameSettings;
 import com.example.move_arm.service.AnimationService;
@@ -39,12 +38,14 @@ public class HoldGameController {
     private int remainingTime;
     private long gameStartTimeNs;
     private final double HOLD_TIME_SECONDS = 0.5; 
+    private int exitAttempts = 0;
+    private int globalAttemptCounter = 0;
 
     private HoverGameSettings settings;
     private final Random random = new Random();
     private boolean gameActive = false;
     private Timeline timer;
-    private final List<ClickData> clickData = new ArrayList<>();
+    private final List<HoldAttempt> allAttempts = new ArrayList<>();
 
     private SceneManager sceneManager;
     private final GameService gameService = GameService.getInstance();
@@ -105,11 +106,13 @@ public class HoldGameController {
 
         settings = SettingsService.getInstance().getHoverSettings();
         gameActive = true;
-        clickData.clear();
+        allAttempts.clear();
         score = 0;
+        globalAttemptCounter = 0;
         activeCircles = 0;
         isInitialSpawnDone = false;
         gameStartTimeNs = System.nanoTime();
+        exitAttempts = 0;
 
         remainingTime = settings.getDurationSeconds();
         scoreLabel.setText("Очки: " + score);
@@ -173,11 +176,16 @@ public class HoldGameController {
         gameRoot.getChildren().clear();
 
         try {
-            int savedId = gameService.addGameClicks(settings.getRadius(), new ArrayList<>(clickData));
-            AppLogger.info("GameController: Результат сохранён в БД (id=" + savedId + ")");
+            // Вызываем новый метод вместо старого addGameClicks
+            int savedId = gameService.addHoldGameResults(
+                    settings.getRadius(),
+                    new ArrayList<>(allAttempts) // Твой список HoldAttempt
+            );
+            AppLogger.info("Результат Hold-игры сохранён (id=" + savedId + ")");
         } catch (Exception e) {
-            AppLogger.error("GameController: Ошибка сохранения результата", e);
+            AppLogger.error("Ошибка сохранения результатов", e);
         }
+
 
         if (widthListener != null) {
             gameRoot.widthProperty().removeListener(widthListener);
@@ -187,7 +195,6 @@ public class HoldGameController {
             gameRoot.heightProperty().removeListener(heightListener);
             heightListener = null;
         }
-        
         SceneManager mgr = (sceneManager != null) ? sceneManager : SceneManager.get();
         if (mgr != null) mgr.showResults(); 
     }
@@ -200,28 +207,36 @@ public class HoldGameController {
         if (paneWidth <= 0 || paneHeight <= 0) return;
 
         int radius = settings.getRadius();
-
         double x = random.nextDouble() * (paneWidth - radius * 2);
         double y = random.nextDouble() * (paneHeight - radius * 2);
-
-        Color color = Color.rgb(
-                random.nextInt(256),
-                random.nextInt(256),
-                random.nextInt(256),
-                1.0
-        );
-
-        // Списки для накопления координат курсора
-        final List<Double> cursorXList = new ArrayList<>();
-        final List<Double> cursorYList = new ArrayList<>();
-
+        
         final double centerX = x + radius;
         final double centerY = y + radius;
 
-        Runnable onComplete = () -> {
-            if (!gameActive) return;
+        Color color = Color.rgb(random.nextInt(256), random.nextInt(256), random.nextInt(256), 1.0);
 
-            long relNs = System.nanoTime() - gameStartTimeNs;
+        // Храним время входа для расчета длительности срыва
+        final long[] entryTimeNs = {0}; 
+        final boolean[] isTargetProcessed = {false};
+
+        // --- ЛОГИКА УСПЕХА (Мишень удержана до конца) ---
+        Runnable onComplete = () -> {
+            if (!gameActive || isTargetProcessed[0]) return;
+
+            isTargetProcessed[0] = true;
+
+            long now = System.nanoTime();
+            
+            // 1. ЗАПИСЬ ДАННЫХ: Успешная попытка
+            allAttempts.add(new HoldAttempt(
+                    ++globalAttemptCounter,
+                    entryTimeNs[0],
+                    now,
+                    (long) (HOLD_TIME_SECONDS * 1000), // фактическое время = требуемому
+                    true,
+                    centerX,
+                    centerY
+            ));
 
             if (hoverSound != null) hoverSound.play();
 
@@ -229,84 +244,69 @@ public class HoldGameController {
             scoreLabel.setText("Очки: " + score);
             activeCircles--;
 
-            // Вычисляем среднее положение курсора
-            double avgCursorX = centerX; // fallback - центр круга
-            double avgCursorY = centerY;
-
-            if (!cursorXList.isEmpty() && !cursorYList.isEmpty()) {
-                avgCursorX = cursorXList.stream().mapToDouble(Double::doubleValue).average().orElse(centerX);
-                avgCursorY = cursorYList.stream().mapToDouble(Double::doubleValue).average().orElse(centerY);
-            }
-
-            // Сохраняем данные
-            clickData.add(new ClickData(relNs, avgCursorX, avgCursorY, x, y, radius));
-
-            // Также можно сохранить количество измерений
-            // clickData.add(new ClickData(relNs, avgCursorX, avgCursorY, x, y, radius, cursorXList.size()));
-
-            // Удаляем круг
+            // 2. УДАЛЕНИЕ И АНИМАЦИЯ (Функциональность сохранена)
             gameRoot.getChildren().removeIf(node ->
                     node instanceof HoldTarget &&
                             Math.abs(((HoldTarget) node).getLayoutX() - x) < 0.1 &&
                             Math.abs(((HoldTarget) node).getLayoutY() - y) < 0.1
             );
 
-            // Анимация взрыва
-            Circle explosionDummy = new Circle(radius);
+            // Создаем "пустышку" для анимации взрыва
+            Circle explosionDummy = new Circle(radius, color);
             explosionDummy.setCenterX(centerX);
             explosionDummy.setCenterY(centerY);
-            explosionDummy.setFill(color);
-
             gameRoot.getChildren().add(explosionDummy);
 
             try {
+                // Твоя фирменная анимация из AnimationService
                 AnimationService.playDestructionAnimation(gameRoot, explosionDummy, null);
             } catch (Exception ignored) {}
 
-            // Очистка после анимации
-            new Timeline(new KeyFrame(Duration.millis(500), e -> {
-                gameRoot.getChildren().remove(explosionDummy);
-            })).play();
+            // Удаляем остатки анимации через полсекунды
+            new Timeline(new KeyFrame(Duration.millis(500), e -> gameRoot.getChildren().remove(explosionDummy))).play();
 
             if (activeCircles < settings.getMaxCirclesCount()) {
                 spawnHoldTarget();
             }
         };
 
-        HoldTarget target = new HoldTarget(
-                radius,
-                color,
-                HOLD_TIME_SECONDS,
-                onComplete
-        );
+        // Создаем саму мишень (внутри неё зашита анимация заполнения цветом)
+        HoldTarget target = new HoldTarget(radius, color, HOLD_TIME_SECONDS, onComplete);
 
-        // Собираем координаты курсора
-        target.setOnMouseMoved(event -> {
-            // Координаты относительно сцены (более точные)
-            double sceneX = event.getSceneX();
-            double sceneY = event.getSceneY();
+        // --- ЛОГИКА ВХОДА ---
+        target.setOnMouseEntered(e -> {
+            entryTimeNs[0] = System.nanoTime();
+        });
 
-            // Или координаты относительно круга + позиция круга
-            // double circleX = event.getX() + target.getLayoutX();
-            // double circleY = event.getY() + target.getLayoutY();
+        // --- ЛОГИКА СРЫВА ---
+        target.setOnMouseExited(e -> {
+            if (gameActive && entryTimeNs[0] > 0 && !isTargetProcessed[0]) {
+                // Если мишень всё еще в детях Pane — значит, это был преждевременный выход
+                if (gameRoot.getChildren().contains(target)) {
+                    long now = System.nanoTime();
+                    long actualMs = (now - entryTimeNs[0]) / 1_000_000;
 
-            cursorXList.add(sceneX);
-            cursorYList.add(sceneY);
-
-            // Ограничиваем размер списка, если нужно (например, последние 100 измерений)
-            if (cursorXList.size() > 100) {
-                cursorXList.remove(0);
-                cursorYList.remove(0);
+                    // ЗАПИСЬ ДАННЫХ: Неудачная попытка (срыв)
+                    allAttempts.add(new HoldAttempt(
+                            ++globalAttemptCounter,
+                            entryTimeNs[0],
+                            now,
+                            actualMs,
+                            false,
+                            centerX,
+                            centerY
+                    ));
+                    
+                    entryTimeNs[0] = 0; // Сбрасываем метку входа
+                }
             }
         });
 
         target.setLayoutX(x);
         target.setLayoutY(y);
-
         gameRoot.getChildren().add(target);
         activeCircles++;
     }
-
 
     @FXML
     private void handleToMenu() {

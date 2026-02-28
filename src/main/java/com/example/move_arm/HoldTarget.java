@@ -36,6 +36,8 @@ public class HoldTarget extends Pane {
         baseCircle = new Circle(radius, radius, radius);
         baseCircle.setFill(circleColor);
         baseCircle.setPickOnBounds(true);
+        baseCircle.setStroke(Color.WHITE);
+        baseCircle.setStrokeWidth(1);
 
         // ⚪ Дуга прогресса (изначально НЕТ)
         progressArc = new Arc();
