@@ -1,5 +1,6 @@
-package com.example.move_arm;
+package com.example.move_arm.app;
 
+import com.example.move_arm.util.AppLogger;
 import javafx.application.Application;
 
 public class Launcher {

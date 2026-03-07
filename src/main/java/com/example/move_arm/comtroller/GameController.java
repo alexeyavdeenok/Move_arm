@@ -1,9 +1,11 @@
-package com.example.move_arm;
+package com.example.move_arm.comtroller;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
+import com.example.move_arm.util.AppLogger;
+import com.example.move_arm.ui.SceneManager;
 import com.example.move_arm.model.ClickData;
 import com.example.move_arm.model.User;
 import com.example.move_arm.model.settings.HoverGameSettings;
@@ -73,7 +75,7 @@ public class GameController {
         settings = SettingsService.getInstance().getHoverSettings();
 
         try {
-            var url = getClass().getResource("/sounds/cartoon-bubble-pop-01-.mp3");
+            var url = getClass().getResource("/com/example/move_arm/sounds/cartoon-bubble-pop-01-.mp3");
             if (url != null) hoverSound = new AudioClip(url.toExternalForm());
         } catch (Exception e) {
             hoverSound = null;

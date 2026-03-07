@@ -6,8 +6,8 @@
 
 <AnchorPane xmlns="http://javafx.com/javafx/17"
             xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.example.move_arm.StatisticsController"
-            stylesheets="@css/dark-glow.css">
+            fx:controller="com.example.move_arm.comtroller.StatisticsController"
+            stylesheets="@../css/dark-glow.css">
 
     <children>
         <VBox spacing="20" alignment="CENTER"

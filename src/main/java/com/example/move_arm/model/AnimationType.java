@@ -1,4 +1,3 @@
-// com.example.move_arm.model.AnimationType.java
 package com.example.move_arm.model;
 
 public enum AnimationType {
@@ -7,7 +6,7 @@ public enum AnimationType {
     CRAZY_EXPLOSION("Безумный взрыв"),
     AREA_GRAVITY_FALL("Рассыпание по площади"),
     COLORFUL_AREA_FALL("Цветное рассыпание"),
-    CONTOUR_COLLAPSE("Осыпание контура (Оптимально)"),   // ✅ НОВАЯ
+    CONTOUR_COLLAPSE("Осыпание контура (Оптимально)"),
     FAST_SHOCKWAVE("Быстрая волна (Лайт)"),
     INSANE_EXPLOSION("Эпичный взрыв");
 

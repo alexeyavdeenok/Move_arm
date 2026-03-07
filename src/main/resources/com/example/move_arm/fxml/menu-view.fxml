@@ -5,8 +5,8 @@
 
 <AnchorPane xmlns="http://javafx.com/javafx/17"
             xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.example.move_arm.MenuController"
-            stylesheets="@css/dark-glow.css">
+            fx:controller="com.example.move_arm.comtroller.MenuController"
+            stylesheets="@../css/dark-glow.css">
 
     <children>
 

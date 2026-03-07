@@ -1,6 +1,8 @@
 // src/main/java/com/example/move_arm/HelloApplication.java
-package com.example.move_arm;
+package com.example.move_arm.app;
 
+import com.example.move_arm.util.AppLogger;
+import com.example.move_arm.ui.SceneManager;
 import javafx.application.Application;
 import javafx.geometry.Rectangle2D;
 import javafx.stage.Screen;

@@ -1,5 +1,6 @@
-package com.example.move_arm;
+package com.example.move_arm.comtroller;
 
+import com.example.move_arm.ui.SceneManager;
 import com.example.move_arm.model.AnimationType;
 import com.example.move_arm.model.settings.HoverGameSettings;
 import com.example.move_arm.service.AnimationService;

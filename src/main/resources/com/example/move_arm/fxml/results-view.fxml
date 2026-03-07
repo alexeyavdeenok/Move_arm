@@ -6,8 +6,8 @@
 
 <StackPane xmlns="http://javafx.com/javafx/17"
            xmlns:fx="http://javafx.com/fxml"
-           fx:controller="com.example.move_arm.ResultsController"
-           stylesheets="@css/dark-glow.css">
+           fx:controller="com.example.move_arm.comtroller.ResultsController"
+           stylesheets="@../css/dark-glow.css">
 
     <VBox spacing="25" alignment="CENTER">
 

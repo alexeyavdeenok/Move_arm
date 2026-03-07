@@ -1,5 +1,6 @@
-package com.example.move_arm;
+package com.example.move_arm.comtroller;
 
+import com.example.move_arm.ui.SceneManager;
 import com.example.move_arm.database.GameResultDao;
 import com.example.move_arm.model.GameResult;
 import com.example.move_arm.service.GameService;

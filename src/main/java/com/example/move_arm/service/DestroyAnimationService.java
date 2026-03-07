@@ -1,4 +1,4 @@
-package com.example.move_arm;
+package com.example.move_arm.service;
 
 import javafx.animation.FadeTransition;
 import javafx.animation.Interpolator;

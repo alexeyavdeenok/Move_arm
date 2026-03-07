@@ -1,5 +1,6 @@
-package com.example.move_arm;
+package com.example.move_arm.comtroller;
 
+import com.example.move_arm.ui.SceneManager;
 import com.example.move_arm.database.UserDao;
 import com.example.move_arm.model.User;
 import com.example.move_arm.service.GameService;
@@ -27,7 +28,6 @@ public class StartWindowController {
     private SceneManager sceneManager;
     private final UserDao userDao = new UserDao();
     private final GameService gameService = GameService.getInstance();
-    private List<User> userList;
 
     public void setSceneManager(SceneManager sm) {
         this.sceneManager = sm;
@@ -76,7 +76,7 @@ public class StartWindowController {
     private void refreshUsersList() {
         usersListView.getItems().clear();
         try {
-            userList = userDao.listAll();
+            List<User> userList = userDao.listAll();
             for (User u : userList) usersListView.getItems().add(u.getUsername());
         } catch (Exception ignored) {}
     }
@@ -111,7 +111,7 @@ public class StartWindowController {
             return;
         }
 
-        User created = userDao.createUser(username);
+        userDao.createUser(username);
         refreshUsersList();
         setMessage("Пользователь создан", false);
         configureFormMode(false);

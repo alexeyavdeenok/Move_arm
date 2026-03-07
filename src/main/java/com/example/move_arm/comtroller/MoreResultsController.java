@@ -1,10 +1,11 @@
-package com.example.move_arm;
+package com.example.move_arm.comtroller;
 
+import com.example.move_arm.util.AppLogger;
+import com.example.move_arm.ui.SceneManager;
 import com.example.move_arm.database.ClickDao;
 import com.example.move_arm.model.ClickData;
 import com.example.move_arm.model.GameResult;
 import com.example.move_arm.service.GameService;
-import com.example.move_arm.model.Statistics;
 import javafx.fxml.FXML;
 import javafx.scene.chart.LineChart;
 import javafx.scene.chart.NumberAxis;

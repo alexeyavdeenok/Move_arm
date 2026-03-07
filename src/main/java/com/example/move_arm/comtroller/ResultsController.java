@@ -1,7 +1,10 @@
-package com.example.move_arm;
+package com.example.move_arm.comtroller;
 
 import java.util.List;
+import java.util.Objects;
 
+import com.example.move_arm.util.AppLogger;
+import com.example.move_arm.ui.SceneManager;
 import com.example.move_arm.database.ClickDao;
 import com.example.move_arm.database.HoldAttemptDao;
 import com.example.move_arm.model.ClickData; // Не забудь импорт
@@ -196,8 +199,14 @@ public class ResultsController {
     }
 
     @FXML private void handleRestartButton() {
-        gameService.clear();
-        sceneManager.startNewGame();
+        if(Objects.equals(gameService.getCurrentGameTypeString(), "hold")){
+            gameService.clear();
+            sceneManager.showHoldGame();
+        }
+        else {
+            gameService.clear();
+            sceneManager.startNewGame();
+        }
     }
 
     @FXML private void handleToMenuButton() {

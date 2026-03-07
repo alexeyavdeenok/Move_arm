@@ -1,4 +1,4 @@
-package com.example.move_arm;
+package com.example.move_arm.util;
 
 import java.io.FileWriter;
 import java.io.IOException;

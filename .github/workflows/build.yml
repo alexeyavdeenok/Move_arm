@@ -37,7 +37,7 @@ jobs:
             --type exe ^
             --dest output ^
             --vendor "MoveArm Team" ^
-            --icon src/main/resources/icon.ico ^
+            --icon src/main/resources/icons/icon.ico ^
             --win-shortcut ^
             --win-menu ^
             --win-menu-group "MoveArm"

@@ -8,8 +8,8 @@
 
 <BorderPane xmlns="http://javafx.com/javafx/17"
             xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.example.move_arm.StartWindowController"
-            stylesheets="@css/dark-glow.css">
+            fx:controller="com.example.move_arm.comtroller.StartWindowController"
+            stylesheets="@../css/dark-glow.css">
 
     <!-- ================= TOP BAR ================= -->
     <top>

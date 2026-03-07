@@ -5,8 +5,8 @@
 
 <BorderPane xmlns="http://javafx.com/javafx/17"
             xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.example.move_arm.HoldGameController"
-            stylesheets="@css/dark-glow.css">
+            fx:controller="com.example.move_arm.comtroller.GameController"
+            stylesheets="@../css/dark-glow.css">
 
     <top>
         <HBox fx:id="topPanel"
@@ -26,7 +26,7 @@
               styleClass="bottom-bar">
 
             <Button text="Новая игра" onAction="#handleRestart"/>
-            <Button text="В меню" onAction="#handleToMenu"/>
+            <Button text="В меню"     onAction="#handleToMenu"/>
 
         </HBox>
     </bottom>
