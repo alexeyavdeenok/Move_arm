@@ -330,8 +330,19 @@ public class HoldGameController {
     
     @FXML 
     private void handleRestart() {
-        handleToMenu();
-        startGame();
+        gameActive = false;
+
+        // безопасный restart: если SceneManager доступен, попросим его перезапустить сцену, иначе просто startGame()
+        SceneManager mgr = this.sceneManager;
+        if (mgr == null) {
+            try { mgr = SceneManager.get(); } catch (Exception ignored) {
+            }
+        }
+        if (mgr != null) {
+            mgr.showHoldGame();
+        } else {
+            startGame();
+        }
     }
     
     // ✅ Метод сохранения результатов (закомментирован как просили)

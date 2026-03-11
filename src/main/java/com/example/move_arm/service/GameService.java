@@ -1,247 +1,86 @@
 package com.example.move_arm.service;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
-import com.example.move_arm.database.ClickDao;
-import com.example.move_arm.database.DatabaseManager;
-import com.example.move_arm.database.GameResultDao;
-import com.example.move_arm.database.GameTypeDao;
-import com.example.move_arm.database.HoldAttemptDao;
-import com.example.move_arm.database.UserDao;
-import com.example.move_arm.model.ClickData;
-import com.example.move_arm.model.GameResult;
-import com.example.move_arm.model.GameType;
-import com.example.move_arm.model.HoldAttempt;
-import com.example.move_arm.model.Statistics;
-import com.example.move_arm.model.User;
+import com.example.move_arm.model.*;
 
-/**
- * GameService — централизованный сервис для:
- *  - сохранения результатов игры и кликов в базу данных (через DAO);
- *  - хранения в памяти кликов последней игры (lastGameClicks) для совместимости с UI;
- *  - управления текущим пользователем (currentUser), запоминания last_user_id в app_meta.
- *
- * Предполагается, что DatabaseManager, GameResultDao, ClickDao, UserDao, GameTypeDao
- * реализованы и доступны в проекте (как обсуждали ранее).
- */
 public class GameService {
 
     private static final GameService INSTANCE = new GameService();
 
-    private final UserDao userDao = new UserDao();
-    private final GameTypeDao gameTypeDao = new GameTypeDao();
-    private final GameResultDao gameResultDao = new GameResultDao();
-    private final ClickDao clickDao = new ClickDao();
-    private final HoldAttemptDao holdAttemptDao = new HoldAttemptDao();
-    private final DatabaseManager dbManager = DatabaseManager.getInstance();
-
-    private User currentUser;
-    private GameType currentGameType;
-    private List<ClickData> lastGameClicks = new ArrayList<>();
-
-    private GameService() {
-        // Попробуем восстановить последнего пользователя из app_meta (если есть)
-        try {
-            String lastUserId = dbManager.getAppProperty("last_user_id");
-            if (lastUserId != null) {
-                try {
-                    int id = Integer.parseInt(lastUserId);
-                    Optional<User> u = userDao.findById(id);
-                    if (u.isPresent()) currentUser = u.get();
-                } catch (NumberFormatException ignored) { }
-            }
-        } catch (Exception ignored) { }
-
-        // Если currentUser не задан — гарантируем наличие guest
-        if (currentUser == null) {
-            Optional<User> guest = userDao.findByUsername("guest");
-            currentUser = guest.orElseGet(() -> userDao.createUser("guest"));
-            // сохранение last_user_id
-            try {
-                dbManager.setAppProperty("last_user_id", String.valueOf(currentUser.getId()));
-            } catch (Exception ignored) { }
-        }
-    }
+    private final UserService userService = new UserService();
+    private final GameTypeService gameTypeService = new GameTypeService();
+    private final ClickGameService clickGameService = new ClickGameService();
+    private final HoldGameService holdGameService = new HoldGameService();
+    private final GameCacheService cacheService = new GameCacheService();
+    private final ResultService resultService = new ResultService();
 
     public static GameService getInstance() {
         return INSTANCE;
     }
 
-    // --- User management -------------------------------------------------
-
     public User getCurrentUser() {
-        return currentUser;
+        return userService.getCurrentUser();
     }
 
-    /**
-     * Устанавливает текущего пользователя и запоминает его id в app_meta (last_user_id).
-     */
     public void setCurrentUser(User user) {
-        if (user == null) return;
-        this.currentUser = user;
-        try {
-            dbManager.setAppProperty("last_user_id", String.valueOf(user.getId()));
-        } catch (Exception e) {
-            // логирование не обязателен здесь, но можно оставить
-            System.err.println("GameService: Не удалось сохранить last_user_id: " + e.getMessage());
-        }
+        userService.setCurrentUser(user);
+    }
+
+    public void setCurrentGameType(GameType type) {
+        gameTypeService.setCurrentGameType(type);
     }
 
     public int getCurrentGameTypeId() {
-        return currentGameType.getId();
+        return gameTypeService.getCurrentGameTypeId();
     }
 
-    public String getCurrentGameTypeString(){
-        return currentGameType.getName();
+    public String getCurrentGameTypeString() {
+        return gameTypeService.getCurrentGameTypeString();
     }
 
-    public void setCurrentGameType(GameType gameType) {
-        if (gameType == null) return;
-        this.currentGameType = gameType;
-        try {
-            dbManager.setAppProperty("last_game_type_id", String.valueOf(gameType.getId()));
-        } catch (Exception e) {
-            // логирование не обязателен здесь, но можно оставить
-            System.err.println("GameService: Не удалось сохранить last_game_type_id: " + e.getMessage());
-        }
-    }
-    // --- Game results / clicks ------------------------------------------
-
-    /**
-     * Сохранить список кликов игры в БД, собрать статистику и вернуть id записи game_results.
-     * Также сохраняет копию кликов в lastGameClicks (для совместимости).
-     *
-     * Метод ожидает, что ClickData.getClickTimeNs() уже содержит относительные времена (ns от старта игры).
-     */
     public int addGameClicks(int radius, List<ClickData> clicks) {
-        if (clicks == null) clicks = Collections.emptyList();
 
-        // Копируем в память
-        lastGameClicks = new ArrayList<>(clicks);
+        cacheService.storeClicks(clicks);
 
-        // Формируем GameResult
-        GameResult result = new GameResult();
-        result.setUserId(currentUser != null ? currentUser.getId() : 0);
-
-        // Гарантируем наличие game_type (например "hover")
-        int gameTypeId = getCurrentGameTypeId();
-        result.setGameTypeId(gameTypeId);
-        result.setRadius(radius);
-        result.setScore(clicks.size());
-
-        long durationMs = 0L;
-        if (clicks.size() >= 2) {
-            long first = clicks.get(0).getClickTimeNs();
-            long last = clicks.get(clicks.size() - 1).getClickTimeNs();
-            durationMs = Math.max(0L, (last - first) / 1_000_000L);
-        }
-        result.setDurationMs(durationMs);
-
-        // Статистика
-        result.setHitRate(Statistics.getHitRatePercent(clicks));
-        result.setAvgIntervalMs(Statistics.getAverageClickIntervalMs(clicks));
-        result.setAvgDistancePx(Statistics.getAverageCursorDistance(clicks));
-        result.setAvgSpeed(Statistics.getAverageSpeedPxPerMs(clicks));
-        System.out.println(Statistics.getAverageClickIntervalMs(clicks));
-        // Сохраняем результат и клики в БД
-        int resultId = gameResultDao.insert(result);
-        if (!clicks.isEmpty()) {
-            clickDao.insertClicks(resultId, clicks);
-        }
-        return resultId;
+        return clickGameService.saveClicks(
+                userService.getCurrentUser().getId(),
+                gameTypeService.getCurrentGameTypeId(),
+                radius,
+                clicks
+        );
     }
 
     public int addHoldGameResults(int radius, List<HoldAttempt> attempts) {
-        if (attempts == null || attempts.isEmpty()) return -1;
 
-        // 2. Считаем честную статистику
-        long totalContacts = attempts.size();
-        long successCount = attempts.stream().filter(HoldAttempt::isSuccess).count();
-        double accuracy = (successCount * 100.0) / totalContacts;
-
-        // 3. Формируем основной результат для таблицы game_results
-        GameResult result = new GameResult();
-        result.setUserId(currentUser != null ? currentUser.getId() : 0);
-        result.setGameTypeId(getCurrentGameTypeId());
-        result.setRadius(radius);
-        result.setScore((int) successCount);
-        result.setHitRate(accuracy);
-        result.setTimestamp(System.currentTimeMillis());
-
-        // Длительность игры от первого до последнего контакта
-        long firstNs = attempts.get(0).getStartTimeNs();
-        long lastNs = attempts.get(attempts.size() - 1).getEndTimeNs();
-        result.setDurationMs((lastNs - firstNs) / 1_000_000L);
-
-        // Расчет средней скорости и дистанции (опционально, можно оставить 0 или рассчитать по успехам)
-        result.setHitRate(Statistics.getHoldSuccessRatePercent(attempts));
-        result.setAvgIntervalMs(Statistics.getAverageHoldIntervalMs(attempts));
-        result.setAvgDistancePx(0); // если для hold не считаем расстояние
-        result.setAvgSpeed(0);      // если нет понятия скорости
-
-        // 4. Сохраняем в БД
-        // Сначала заголовок, чтобы получить resultId
-        int resultId = gameResultDao.insert(result);
-        
-        // Затем детали в hold_attempts
-        holdAttemptDao.insertHoldAttempts(resultId, attempts);
-
-        return resultId;
+        return holdGameService.saveHoldResults(
+                userService.getCurrentUser().getId(),
+                gameTypeService.getCurrentGameTypeId(),
+                radius,
+                attempts
+        );
     }
 
-    /**
-     * Возвращает клики последней игры (в памяти). Если требуется клики из БД для конкретного resultId,
-     * используйте ClickDao.readClicksForResult(resultId) (реализован в ClickDao).
-     */
     public List<ClickData> getLastGameClicks() {
-        return Collections.unmodifiableList(lastGameClicks);
+        return cacheService.getLastGameClicks();
     }
 
-    /**
-     * Очищает временные/кэшированные данные (не трогает записи в БД).
-     */
-    public void clear() {
-        lastGameClicks.clear();
-    }
-
-    /**
-     * Удаляет все результаты текущего пользователя из БД и очищает кэш.
-     */
-    public void clearAllForCurrentUser() {
-        gameResultDao.deleteByUserId(currentUser.getId());
-        clear();
-    }
-
-    /**
-     * Для совместимости: печатает краткую сводку по последней игре в stdout/log.
-     */
     public void printLastGameSummary() {
-        List<ClickData> last = getLastGameClicks();
+
+        List<ClickData> last = cacheService.getLastGameClicks();
+
         System.out.println("СТАТИСТИКА ПОСЛЕДНЕЙ ИГРЫ:");
         System.out.println(Statistics.getSummary(last));
     }
 
-    // --- После этой точки — методы, которые нужны UI контроллерам ---------
-
-    /**
-     * Возвращает список GameResult'ов для текущего пользователя (из БД).
-     */
     public List<GameResult> getResultsForCurrentUser() {
-        if (currentUser == null) return Collections.emptyList();
-        return gameResultDao.findByUserId(currentUser.getId());
+
+        return resultService.getResultsForUser(
+                userService.getCurrentUser()
+        );
     }
 
-    /**
-     * Возвращает все результаты в БД (возможен use-case администрирования).
-     */
-    public List<GameResult> getAllResults() {
-        return gameResultDao.findAll(); // предполагается реализация findAll() в GameResultDao или добавить её
-    }
-
-    public GameType getGameType(){
-        return currentGameType;
+    public void clear() {
+        cacheService.clear();
     }
 }

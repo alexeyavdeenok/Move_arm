@@ -263,7 +263,8 @@ public class GameController {
         // безопасный restart: если SceneManager доступен, попросим его перезапустить сцену, иначе просто startGame()
         SceneManager mgr = this.sceneManager;
         if (mgr == null) {
-            try { mgr = SceneManager.get(); } catch (Exception ignored) { mgr = null; }
+            try { mgr = SceneManager.get(); } catch (Exception ignored) {
+            }
         }
         if (mgr != null) {
             mgr.startNewGame();
