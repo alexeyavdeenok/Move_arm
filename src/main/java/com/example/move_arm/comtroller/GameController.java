@@ -58,6 +58,8 @@ public class GameController {
     private final GameService gameService = GameService.getInstance();
     private AudioClip hoverSound;
     private final LevelGeneratorService levelGenerator = LevelGeneratorService.getInstance();
+    private double[] lastCircle = new double[2];
+    private boolean hasLastCircle = false;
 
     @FXML
     public void initialize() {
@@ -135,6 +137,7 @@ public class GameController {
         gameActive = true;
         score = 0;
         activeCircles = 0;
+        hasLastCircle = false;
         clickData.clear();
 
         gameService.clear();
@@ -216,6 +219,9 @@ public class GameController {
                 .map(node -> (Circle) node)
                 .forEach(c -> activePoints.add(new double[]{c.getCenterX(), c.getCenterY()}));
 
+        if (hasLastCircle){
+            activePoints.add(lastCircle);
+        }
         // ПОЛУЧАЕМ КООРДИНАТЫ ИЗ ГЕНЕРАТОРА
         double[] coords = levelGenerator.nextPoint(paneWidth, paneHeight, radius, activePoints);
         double x = coords[0];
@@ -232,6 +238,10 @@ public class GameController {
             if (!gameActive) return;
 
             if (hoverSound != null) hoverSound.play();
+
+            lastCircle[0] = circle.getCenterX();
+            lastCircle[1] = circle.getCenterY();
+            hasLastCircle = true;
 
             gameRoot.getChildren().remove(circle);
             activeCircles--;

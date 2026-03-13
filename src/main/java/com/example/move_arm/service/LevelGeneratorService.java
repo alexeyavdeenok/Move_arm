@@ -29,23 +29,27 @@ public class LevelGeneratorService implements PointGenerator {
     @Override
     public double[] nextPoint(double width, double height, int radius, List<double[]> activePoints) {
         int maxAttempts = 100;
-        
-        for (int i = 0; i < maxAttempts; i++) {
-            double x = radius + random.nextDouble() * (width - 2 * radius);
-            double y = radius + random.nextDouble() * (height - 2 * radius);
+        double minDistanceNow = minDistanceBetweenCircles;
+        for (int j = 0; j < 10; j++){
+            for (int i = 0; i < maxAttempts; i++) {
+                double x = radius + random.nextDouble() * (width - 2 * radius);
+                double y = radius + random.nextDouble() * (height - 2 * radius);
 
-            if (isSafe(x, y, radius, activePoints)) {
-                return new double[]{x, y};
+                if (isSafe(x, y, radius, activePoints, minDistanceNow)) {
+                    return new double[]{x, y};
+                }
             }
+            minDistanceNow *= 0.8;
+            System.out.println(minDistanceNow);
         }
         // Fallback: если место не нашли, возвращаем просто случайную точку
         return new double[]{radius + random.nextDouble() * (width - 2 * radius), 
                             radius + random.nextDouble() * (height - 2 * radius)};
     }
 
-    private boolean isSafe(double x, double y, int radius, List<double[]> activePoints) {
+    private boolean isSafe(double x, double y, int radius, List<double[]> activePoints, double minDistance) {
         // Рассчитываем необходимую дистанцию один раз до цикла
-        double minAllowedDist = radius * 2 + minDistanceBetweenCircles;
+        double minAllowedDist = radius * 2 + minDistance;
         // Возводим её в квадрат заранее
         double minAllowedDistSq = minAllowedDist * minAllowedDist;
 
