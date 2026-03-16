@@ -4,14 +4,15 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
-import com.example.move_arm.util.AppLogger;
-import com.example.move_arm.ui.SceneManager;
 import com.example.move_arm.model.ClickData;
 import com.example.move_arm.model.User;
 import com.example.move_arm.model.settings.HoverGameSettings;
 import com.example.move_arm.service.AnimationService;
 import com.example.move_arm.service.GameService;
+import com.example.move_arm.service.LevelGeneratorService;
 import com.example.move_arm.service.SettingsService;
+import com.example.move_arm.ui.SceneManager;
+import com.example.move_arm.util.AppLogger;
 
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
@@ -56,6 +57,9 @@ public class GameController {
     private SceneManager sceneManager; // может быть null — используем fallback
     private final GameService gameService = GameService.getInstance();
     private AudioClip hoverSound;
+    private final LevelGeneratorService levelGenerator = LevelGeneratorService.getInstance();
+    private double[] lastCircle = new double[2];
+    private boolean hasLastCircle = false;
 
     @FXML
     public void initialize() {
@@ -127,10 +131,13 @@ public class GameController {
         if (gameActive) return;
 
         settings = SettingsService.getInstance().getHoverSettings();
+        Long userSeed = (long) 67;
+        levelGenerator.initialize(userSeed);
 
         gameActive = true;
         score = 0;
         activeCircles = 0;
+        hasLastCircle = false;
         clickData.clear();
 
         gameService.clear();
@@ -204,9 +211,22 @@ public class GameController {
         }
 
         int radius = settings.getRadius();
-        double x = radius + random.nextDouble() * Math.max(0, (paneWidth - 2 * radius));
-        double y = radius + random.nextDouble() * Math.max(0, (paneHeight - 2 * radius));
 
+        // Собираем текущие круги на экране
+        List<double[]> activePoints = new ArrayList<>();
+        gameRoot.getChildren().stream()
+                .filter(node -> node instanceof Circle)
+                .map(node -> (Circle) node)
+                .forEach(c -> activePoints.add(new double[]{c.getCenterX(), c.getCenterY()}));
+
+        if (hasLastCircle){
+            activePoints.add(lastCircle);
+        }
+        // ПОЛУЧАЕМ КООРДИНАТЫ ИЗ ГЕНЕРАТОРА
+        double[] coords = levelGenerator.nextPoint(paneWidth, paneHeight, radius, activePoints);
+        double x = coords[0];
+        double y = coords[1];
+    
         Circle circle = new Circle(radius);
         circle.setCenterX(x);
         circle.setCenterY(y);
@@ -218,6 +238,10 @@ public class GameController {
             if (!gameActive) return;
 
             if (hoverSound != null) hoverSound.play();
+
+            lastCircle[0] = circle.getCenterX();
+            lastCircle[1] = circle.getCenterY();
+            hasLastCircle = true;
 
             gameRoot.getChildren().remove(circle);
             activeCircles--;
