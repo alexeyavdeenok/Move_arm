@@ -45,6 +45,9 @@
                         onAction="#handlePlayAnimation"/>
             </VBox>
 
+            <Label text="Сид:"/>
+            <ComboBox fx:id="seedComboBox" />
+
             <Button text="Сохранить и выйти"
                     onAction="#handleSaveAndExit"/>
 

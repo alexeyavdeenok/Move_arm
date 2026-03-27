@@ -12,6 +12,7 @@ public class HoverGameSettings extends BaseSettings {
     private int minRadius = 20;
     private int maxRadius = 50;
     private int radius = 30;
+    private int seed = 67;
     private AnimationType animationType = AnimationType.CONTOUR_COLLAPSE;
     // Пустой конструктор обязателен для ORM
     public HoverGameSettings() {}
@@ -31,6 +32,10 @@ public class HoverGameSettings extends BaseSettings {
 
     public double getMaxRadius() { return maxRadius; }
     public void setMaxRadius(int maxRadius) { this.maxRadius = maxRadius; }
+
     public AnimationType getAnimationType() { return animationType; }
     public void setAnimationType(AnimationType animationType) { this.animationType = animationType; }
+
+    public int getSeed(){ return seed; }
+    public void setSeed(int seed){ this.seed = seed;}
 }

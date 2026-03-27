@@ -14,7 +14,7 @@ public class ClickGameService {
     private final GameResultDao gameResultDao = new GameResultDao();
     private final ClickDao clickDao = new ClickDao();
 
-    public int saveClicks(int userId, int gameTypeId, int radius, List<ClickData> clicks) {
+    public int saveClicks(int userId, int gameTypeId, int radius, int seed, List<ClickData> clicks) {
 
         if (clicks == null) clicks = Collections.emptyList();
 
@@ -23,6 +23,7 @@ public class ClickGameService {
         result.setUserId(userId);
         result.setGameTypeId(gameTypeId);
         result.setRadius(radius);
+        result.setSeed(seed);
         result.setScore(clicks.size());
 
         long durationMs = 0;

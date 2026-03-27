@@ -65,6 +65,7 @@ public class DatabaseManager {
                   user_id INTEGER,
                   game_type_id INTEGER,
                   radius INTEGER,
+                  seed INTEGER,
                   score INTEGER,
                   duration_ms INTEGER,
                   timestamp INTEGER,

@@ -9,6 +9,7 @@ import javafx.scene.chart.LineChart;
 import javafx.scene.chart.NumberAxis;
 import javafx.scene.chart.XYChart;
 import javafx.scene.control.Button;
+import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.Slider;
 import javafx.scene.layout.GridPane;
@@ -22,6 +23,9 @@ public class StatisticsController {
     @FXML private GridPane statsGrid;
     @FXML private LineChart<Number, Number> scoresChart;
     @FXML private Button backButton;
+    @FXML private ComboBox<Integer> seedComboBox;
+
+    private int seed = 67;
 
     private SceneManager sceneManager;
     private final GameService gameService = GameService.getInstance();
@@ -42,6 +46,17 @@ public class StatisticsController {
         radiusSlider.setMajorTickUnit(10);  // шаг для рисования делений
         radiusSlider.setMinorTickCount(0);  // без промежуточных делений
         radiusSlider.setSnapToTicks(true);  // "привязка" к делениям
+
+
+        seedComboBox.getItems().setAll(0, 1, 67, 123, 999, 2024);
+        seedComboBox.setValue(seed);
+
+        seedComboBox.valueProperty().addListener((obs, oldVal, newVal) -> {
+            if (newVal != null && newVal != seed) {
+                seed = newVal;
+                updateStatistics();
+            }
+        });
 
         radiusSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
             int rounded = ((int) Math.round(newVal.doubleValue() / 10)) * 10;
@@ -71,11 +86,11 @@ public class StatisticsController {
         }
 
         // вычисляем рекорд, среднее очков, среднее время между кликами
-        List<Integer> ScoresList = gameResultDao.findListScoreByUserGameTypeAndRadius(gameService.getCurrentUser().getId(), gameService.getCurrentGameTypeId(), radius);
-        List<Double> intervals = gameResultDao.findListAvgTimesByUserGameTypeAndRadius(gameService.getCurrentUser().getId(), gameService.getCurrentGameTypeId(), radius);
+        List<Integer> ScoresList = gameResultDao.findListScoreByUserGameTypeAndRadiusAndSeed(gameService.getCurrentUser().getId(), gameService.getCurrentGameTypeId(), radius, seed);
+        List<Double> intervals = gameResultDao.findListAvgTimesByUserGameTypeAndRadiusAndSeed(gameService.getCurrentUser().getId(), gameService.getCurrentGameTypeId(), radius, seed);
         double avgIntervalMs = intervals.stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
         double avgScore = ScoresList.stream().mapToDouble(Integer::doubleValue).average().orElse(0.0);
-        int bestScore = gameResultDao.findRecordScoreByUserGameTypeAndRadius(gameService.getCurrentUser().getId(), gameService.getCurrentGameTypeId(), radius);
+        int bestScore = gameResultDao.findRecordScoreByUserGameTypeAndRadiusAndSeed(gameService.getCurrentUser().getId(), gameService.getCurrentGameTypeId(), radius, seed);
 
         statsGrid.add(new Label("Рекорд:"), 0, 0);
         statsGrid.add(new Label(String.valueOf(bestScore)), 1, 0);
@@ -91,7 +106,7 @@ public class StatisticsController {
         xAxis.setAutoRanging(true);
         yAxis.setAutoRanging(true);
 
-// Добавляем серию
+
         XYChart.Series<Number, Number> series = new XYChart.Series<>();
         series.setName("Очки по играм");
         int i = 1;

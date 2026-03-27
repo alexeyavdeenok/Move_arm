@@ -33,6 +33,9 @@
                 <Label fx:id="radiusLabel" text="50"/>
             </HBox>
 
+            <Label text="Сид:"/>
+            <ComboBox fx:id="seedComboBox" />
+
             <!-- Статистика -->
             <GridPane fx:id="statsGrid" hgap="30" vgap="10" styleClass="dark-panel">
                 <padding>

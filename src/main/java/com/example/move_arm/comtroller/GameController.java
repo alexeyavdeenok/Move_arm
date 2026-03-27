@@ -131,7 +131,7 @@ public class GameController {
         if (gameActive) return;
 
         settings = SettingsService.getInstance().getHoverSettings();
-        Long userSeed = (long) 67;
+        int userSeed = settings.getSeed();
         levelGenerator.initialize(userSeed);
 
         gameActive = true;
@@ -178,7 +178,7 @@ public class GameController {
 
         // сохраняем результат — GameService сохраняет в БД и хранит lastGameClicks
         try {
-            int savedId = gameService.addGameClicks(settings.getRadius(), new ArrayList<>(clickData));
+            int savedId = gameService.addGameClicks(settings.getRadius(), settings.getSeed(), new ArrayList<>(clickData));
             AppLogger.info("GameController: Результат сохранён в БД (id=" + savedId + ")");
         } catch (Exception e) {
             AppLogger.error("GameController: Ошибка сохранения результата", e);

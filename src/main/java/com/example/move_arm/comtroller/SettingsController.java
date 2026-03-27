@@ -23,6 +23,7 @@ public class SettingsController {
 
     @FXML private Pane previewRoot;
     @FXML private Circle previewCircle;
+    @FXML private ComboBox<Integer> seedComboBox;
 
     private SceneManager sceneManager;
     private HoverGameSettings settings;
@@ -47,6 +48,10 @@ public class SettingsController {
         radiusSlider.setValue(settings.getRadius());
         previewCircle.setRadius(settings.getRadius());
         updateRadiusLabel(settings.getRadius());
+
+        seedComboBox.getItems().setAll(0, 1, 67, 123, 999, 2024);
+
+        seedComboBox.setValue(settings.getSeed());
 
         radiusSlider.valueProperty().addListener((obs, oldVal, newVal) -> {
             int snapped = ((int) Math.round(newVal.doubleValue() / 10)) * 10;
@@ -123,6 +128,7 @@ public class SettingsController {
     @FXML
     private void handleSaveAndExit() {
         settings.setRadius((int) radiusSlider.getValue());
+        settings.setSeed(seedComboBox.getValue());
         settings.setAnimationType(animationTypeComboBox.getValue());
 
         SettingsService.getInstance().saveHoverSettings(settings);

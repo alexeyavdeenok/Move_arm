@@ -39,7 +39,7 @@ public class GameService {
         return gameTypeService.getCurrentGameTypeString();
     }
 
-    public int addGameClicks(int radius, List<ClickData> clicks) {
+    public int addGameClicks(int radius, int seed, List<ClickData> clicks) {
 
         cacheService.storeClicks(clicks);
 
@@ -47,6 +47,7 @@ public class GameService {
                 userService.getCurrentUser().getId(),
                 gameTypeService.getCurrentGameTypeId(),
                 radius,
+                seed,
                 clicks
         );
     }

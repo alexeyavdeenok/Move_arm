@@ -18,8 +18,8 @@ public class LevelGeneratorService implements PointGenerator {
     }
 
     // Инициализация: если seed == null, будет рандом
-    public void initialize(Long seed) {
-        if (seed != null) {
+    public void initialize(int seed) {
+        if (seed != 0) {
             this.random = new Random(seed);
         } else {
             this.random = new Random();
