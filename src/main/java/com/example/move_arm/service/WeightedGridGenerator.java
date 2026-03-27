@@ -1,226 +1,261 @@
 package com.example.move_arm.service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 
 public class WeightedGridGenerator implements PointGenerator {
 
     private final Random random = new Random();
+    private List<Region> regions = new ArrayList<>();
+    private double lastWidth = -1, lastHeight = -1;
+    private int radiusCache = 0;
+    private List<double[]> previousActivePoints = new ArrayList<>();
+    private int spawnCounter = 0;
 
-    private int gridCols;
-    private int gridRows;
-    private double cellSize;
+    private static class Region {
+        double minX, maxX, minY, maxY;
+        double centerX, centerY;
+        double weight = 1.0;
+        int lastSpawnedAt = -200;
+    }
 
-    private double[][] weights;
-    private double[][] avoidScore;
-    private long[][] lastUsed;
+    public WeightedGridGenerator() {}
 
-    private boolean initialized = false;
+    public void initialize(int seed) {
+        if (seed != 0) random.setSeed(seed);
+        reset();
+    }
 
-    private double minDistanceBetweenCircles = 150.0;
-
-    // --- для анализа поведения ---
-    private List<double[]> previousTargets = null;
-    private double[] previousLastHit = null;
-
-    // ================== MAIN ==================
+    private void reset() {
+        previousActivePoints.clear();
+        spawnCounter = 0;
+        for (Region r : regions) {
+            r.weight = 1.0;
+            r.lastSpawnedAt = -200;
+        }
+    }
 
     @Override
-    public double[] nextPoint(double width, double height, int radius, List<double[]> activePoints) {
+    public double[] nextPoint(double width, double height, int radius, List<double[]> currentActivePoints) {
+        spawnCounter++;
 
-        if (!initialized) {
-            initialize(width, height, radius);
+        if (width < 200 || height < 200) {
+            previousActivePoints = new ArrayList<>(currentActivePoints);
+            return fallbackRandom(width, height, radius);
         }
 
-        // анализ поведения пользователя
-        updateFromUserChoice(activePoints);
-
-        decay();
-
-        boolean[][] occupied = getOccupiedCells(activePoints);
-
-        int[] cell = pickCell(occupied);
-
-        if (cell != null) {
-            int gx = cell[0];
-            int gy = cell[1];
-
-            lastUsed[gx][gy] = System.currentTimeMillis();
-            weights[gx][gy] *= 0.7; // уменьшаем шанс повтора
-
-            return generateInCell(gx, gy, radius);
+        if (Math.abs(width - lastWidth) > 1 || Math.abs(height - lastHeight) > 1 || radius != radiusCache) {
+            rebuildGrid(width, height, radius);
+            lastWidth = width;
+            lastHeight = height;
+            radiusCache = radius;
         }
 
-        // fallback
+    
+        double[] justHit = detectJustHitPoint(currentActivePoints);
+
+        updateRegionWeights(justHit, currentActivePoints);
+
+        previousActivePoints = new ArrayList<>(currentActivePoints);
+
+        int b = 0;
+
+        if (spawnCounter % 3 == 0 || b == 1) {   // выводим каждые 3 спавна, чтобы не было слишком часто
+            printRegionWeights(currentActivePoints, justHit);
+        }
+
+        return choosePoint(currentActivePoints, justHit);
+    }
+
+    private void printRegionWeights(List<double[]> currentActive, double[] justHit) {
+        System.out.println("\n=== ВЕСА РЕГИОНОВ — Спавн #" + spawnCounter + " ===");
+        if (justHit != null) {
+            System.out.printf("Последняя сбитая цель: (%.0f, %.0f)%n", justHit[0], justHit[1]);
+        } else {
+            System.out.println("Последняя сбитая цель: —");
+        }
+
+        System.out.println("№  | Центр (X,Y)     | Вес     | Возраст | Занят | Последний спавн");
+        System.out.println("---|------------------|---------|---------|-------|----------------");
+
+        for (int i = 0; i < regions.size(); i++) {
+            Region r = regions.get(i);
+            boolean occupied = isRegionOccupied(r, currentActive);
+            int age = spawnCounter - r.lastSpawnedAt;
+
+            System.out.printf("%2d | (%4.0f,%4.0f)   | %6.3f  | %6d  | %-5s | %d%n",
+                    i,
+                    r.centerX, r.centerY,
+                    r.weight,
+                    age,
+                    occupied ? "Да" : "Нет",
+                    r.lastSpawnedAt);
+        }
+        System.out.println("====================================================================\n");
+    }
+
+    private double[] detectJustHitPoint(List<double[]> current) {
+        if (previousActivePoints.isEmpty()) return null;
+        for (double[] prev : previousActivePoints) {
+            boolean stillExists = current.stream().anyMatch(curr ->
+                    Math.hypot(prev[0] - curr[0], prev[1] - curr[1]) < 3.0);
+            if (!stillExists) return prev;
+        }
+        return null;
+    }
+
+    private void updateRegionWeights(double[] justHit, List<double[]> currentActive) {
+        // 1. Пассивный бонус для давно неиспользованных регионов (твоя главная идея)
+        for (Region r : regions) {
+            int age = spawnCounter - r.lastSpawnedAt;
+            double passive = 0.4 + 0.028 * Math.max(0, age - 6);   // сильнее чем раньше
+            r.weight = r.weight * 0.935 + passive;
+        }
+
+        // 2. Hit — наказание
+        if (justHit != null) {
+            Region r = findRegion(justHit[0], justHit[1]);
+            if (r != null) {
+                r.lastSpawnedAt = spawnCounter;
+                r.weight = r.weight * 0.78 + 0.25;   // сильнее наказываем
+            }
+        }
+
+        // 3. Очень слабый игнор-бонус
+        for (double[] p : currentActive) {
+            Region r = findRegion(p[0], p[1]);
+            if (r != null) {
+                r.weight = r.weight * 1.025 + 0.8;   // минимальный
+            }
+        }
+
+        // 4. Сглаживание весов соседей (плавность!)
+        smoothWeights();
+    }
+
+    // Новое: распространение веса на соседей
+    private void smoothWeights() {
+        double[] newWeights = new double[regions.size()];
+
+        for (int i = 0; i < regions.size(); i++) {
+            Region r = regions.get(i);
+            double sum = r.weight;
+            int count = 1;
+
+            // Берём веса соседей (простая 8-соседняя окрестность)
+            for (int j = 0; j < regions.size(); j++) {
+                if (i == j) continue;
+                Region other = regions.get(j);
+                double dist = Math.hypot(r.centerX - other.centerX, r.centerY - other.centerY);
+                if (dist < 300) {   // соседние клетки
+                    sum += other.weight * 0.35;
+                    count++;
+                }
+            }
+            newWeights[i] = sum / count;
+        }
+
+        // Применяем сглаженные веса
+        for (int i = 0; i < regions.size(); i++) {
+            regions.get(i).weight = newWeights[i];
+        }
+    }
+
+    private double[] choosePoint(List<double[]> currentActive, double[] justHit) {
+        double totalWeight = 0.0;
+        double[] cumulative = new double[regions.size()];
+        double maxDist = Math.hypot(lastWidth, lastHeight);
+
+        for (int i = 0; i < regions.size(); i++) {
+            Region r = regions.get(i);
+            if (isRegionOccupied(r, currentActive)) {
+                cumulative[i] = totalWeight;
+                continue;
+            }
+
+            double bonus = calculateBonus(r, currentActive, justHit, maxDist);
+            double finalWeight = Math.max(0.45, r.weight * bonus);   // высокий минимум
+
+            totalWeight += finalWeight;
+            cumulative[i] = totalWeight;
+        }
+
+        if (totalWeight <= 0) return fallbackRandom(lastWidth, lastHeight, radiusCache);
+
+        double roll = random.nextDouble() * totalWeight;
+        for (int i = 0; i < cumulative.length; i++) {
+            if (roll <= cumulative[i]) {
+                Region chosen = regions.get(i);
+                chosen.lastSpawnedAt = spawnCounter;
+
+                double margin = 30;
+                double x = chosen.minX + margin + random.nextDouble() * (chosen.maxX - chosen.minX - 2 * margin);
+                double y = chosen.minY + margin + random.nextDouble() * (chosen.maxY - chosen.minY - 2 * margin);
+                return new double[]{x, y};
+            }
+        }
+        return fallbackRandom(lastWidth, lastHeight, radiusCache);
+    }
+
+    private double calculateBonus(Region r, List<double[]> currentActive, double[] justHit, double maxDist) {
+        double exploration = 0.6;
+        if (justHit != null) {
+            double dist = Math.hypot(r.centerX - justHit[0], r.centerY - justHit[1]);
+            exploration = 0.6 + 3.8 * (dist / maxDist);
+        }
+
+        double sparsity = 4.2;
+        if (!currentActive.isEmpty()) {
+            double minD = currentActive.stream()
+                    .mapToDouble(p -> Math.hypot(r.centerX - p[0], r.centerY - p[1]))
+                    .min().orElse(1500);
+            sparsity = 1.0 + 2.9 * Math.min(1.0, minD / 450.0);
+        }
+        return exploration * sparsity;
+    }
+
+    private Region findRegion(double x, double y) {
+        for (Region r : regions) {
+            if (x >= r.minX && x <= r.maxX && y >= r.minY && y <= r.maxY) return r;
+        }
+        return null;
+    }
+
+    private boolean isRegionOccupied(Region r, List<double[]> activePoints) {
+        return activePoints.stream().anyMatch(p ->
+                p[0] >= r.minX && p[0] <= r.maxX && p[1] >= r.minY && p[1] <= r.maxY);
+    }
+
+    private void rebuildGrid(double width, double height, int radius) {
+        regions.clear();
+        double effectiveW = width - 2 * radius;
+        double effectiveH = height - 2 * radius;
+
+        int numCols = Math.max(3, Math.min(6, (int) (effectiveW / 270)));
+        int numRows = Math.max(2, Math.min(5, (int) (effectiveH / 270)));
+
+        double cellW = effectiveW / numCols;
+        double cellH = effectiveH / numRows;
+
+        for (int row = 0; row < numRows; row++) {
+            for (int col = 0; col < numCols; col++) {
+                Region r = new Region();
+                r.minX = radius + col * cellW;
+                r.maxX = r.minX + cellW;
+                r.minY = radius + row * cellH;
+                r.maxY = r.minY + cellH;
+                r.centerX = (r.minX + r.maxX) / 2;
+                r.centerY = (r.minY + r.maxY) / 2;
+                regions.add(r);
+            }
+        }
+    }
+
+    private double[] fallbackRandom(double width, double height, int radius) {
         return new double[]{
                 radius + random.nextDouble() * (width - 2 * radius),
                 radius + random.nextDouble() * (height - 2 * radius)
         };
-    }
-
-    // ================== INIT ==================
-
-    private void initialize(double width, double height, int radius) {
-
-        cellSize = 2 * radius + minDistanceBetweenCircles;
-
-        gridCols = Math.max(1, (int)(width / cellSize));
-        gridRows = Math.max(1, (int)(height / cellSize));
-
-        weights = new double[gridCols][gridRows];
-        avoidScore = new double[gridCols][gridRows];
-        lastUsed = new long[gridCols][gridRows];
-
-        long now = System.currentTimeMillis();
-
-        for (int x = 0; x < gridCols; x++) {
-            for (int y = 0; y < gridRows; y++) {
-                weights[x][y] = 1.0;
-                avoidScore[x][y] = 0.0;
-                lastUsed[x][y] = now;
-            }
-        }
-
-        initialized = true;
-    }
-
-    // ================== USER ANALYSIS ==================
-
-    private void updateFromUserChoice(List<double[]> activePoints) {
-
-        if (activePoints == null || activePoints.isEmpty()) return;
-
-        double[] currentLastHit = activePoints.get(activePoints.size() - 1);
-
-        if (previousTargets == null) {
-            previousTargets = activePoints;
-            previousLastHit = currentLastHit;
-            return;
-        }
-
-        for (double[] p : previousTargets) {
-
-            int gx = getCellX(p[0]);
-            int gy = getCellY(p[1]);
-
-            if (samePoint(p, previousLastHit)) {
-                // выбранная цель → уменьшаем вероятность
-                weights[gx][gy] *= 0.5;
-                avoidScore[gx][gy] -= 0.3;
-            } else {
-                // проигнорированная → увеличиваем шанс
-                avoidScore[gx][gy] += 0.6;
-            }
-        }
-
-        previousTargets = activePoints;
-        previousLastHit = currentLastHit;
-    }
-
-    private boolean samePoint(double[] a, double[] b) {
-        return Math.abs(a[0] - b[0]) < 1 && Math.abs(a[1] - b[1]) < 1;
-    }
-
-    // ================== PICK CELL ==================
-
-    private int[] pickCell(boolean[][] occupied) {
-
-        double total = 0;
-        double[][] effective = new double[gridCols][gridRows];
-
-        long now = System.currentTimeMillis();
-
-        for (int x = 0; x < gridCols; x++) {
-            for (int y = 0; y < gridRows; y++) {
-
-                if (occupied[x][y]) continue;
-
-                double timeBonus = (now - lastUsed[x][y]) * 0.0001;
-
-                double w =
-                        weights[x][y]
-                      + timeBonus
-                      + avoidScore[x][y] * 0.7;
-
-                w = Math.max(0.1, Math.min(5.0, w));
-
-                effective[x][y] = w;
-                total += w;
-            }
-        }
-
-        if (total == 0) return null;
-
-        double r = random.nextDouble() * total;
-        double sum = 0;
-
-        for (int x = 0; x < gridCols; x++) {
-            for (int y = 0; y < gridRows; y++) {
-                sum += effective[x][y];
-                if (r <= sum) {
-                    return new int[]{x, y};
-                }
-            }
-        }
-
-        return null;
-    }
-
-    // ================== GENERATION ==================
-
-    private double[] generateInCell(int gx, int gy, int radius) {
-
-        double cellX = gx * cellSize;
-        double cellY = gy * cellSize;
-
-        double margin = radius;
-
-        double minX = cellX + margin;
-        double maxX = cellX + cellSize - margin;
-
-        double minY = cellY + margin;
-        double maxY = cellY + cellSize - margin;
-
-        double x = minX + random.nextDouble() * (maxX - minX);
-        double y = minY + random.nextDouble() * (maxY - minY);
-
-        return new double[]{x, y};
-    }
-
-    // ================== HELPERS ==================
-
-    private int getCellX(double x) {
-        return Math.min((int)(x / cellSize), gridCols - 1);
-    }
-
-    private int getCellY(double y) {
-        return Math.min((int)(y / cellSize), gridRows - 1);
-    }
-
-    private boolean[][] getOccupiedCells(List<double[]> activePoints) {
-        boolean[][] occupied = new boolean[gridCols][gridRows];
-
-        for (double[] p : activePoints) {
-            int gx = getCellX(p[0]);
-            int gy = getCellY(p[1]);
-            occupied[gx][gy] = true;
-        }
-
-        return occupied;
-    }
-
-    // ================== DECAY ==================
-
-    private void decay() {
-        for (int x = 0; x < gridCols; x++) {
-            for (int y = 0; y < gridRows; y++) {
-
-                weights[x][y] *= 0.995;
-                avoidScore[x][y] *= 0.99;
-
-                weights[x][y] = Math.max(0.1, Math.min(3.0, weights[x][y]));
-                avoidScore[x][y] = Math.max(-2.0, Math.min(2.0, avoidScore[x][y]));
-            }
-        }
     }
 }
