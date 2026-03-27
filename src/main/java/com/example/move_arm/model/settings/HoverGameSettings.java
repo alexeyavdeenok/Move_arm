@@ -7,7 +7,7 @@ import com.example.move_arm.model.AnimationType;
 public class HoverGameSettings extends BaseSettings {
 
     // Поля специфичные ТОЛЬКО для этой игры
-    private int durationSeconds = 30;
+    private int durationSeconds = 60;
     private int maxCirclesCount = 3;
     private int minRadius = 20;
     private int maxRadius = 50;
