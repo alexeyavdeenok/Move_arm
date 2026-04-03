@@ -5,7 +5,7 @@
 
 <BorderPane xmlns="http://javafx.com/javafx/17"
             xmlns:fx="http://javafx.com/fxml"
-            fx:controller="com.example.move_arm.comtroller.GameController"
+            fx:controller="com.example.move_arm.ui.view.HoverGameView"
             stylesheets="@../css/dark-glow.css">
 
     <top>

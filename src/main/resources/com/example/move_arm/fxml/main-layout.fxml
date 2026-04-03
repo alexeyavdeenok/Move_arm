@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/17"
+            xmlns:fx="http://javafx.com/fxml"
+            fx:controller="com.example.move_arm.ui.MainLayoutController"
+            stylesheets="@../css/dark-glow.css">
+
+    <!-- Верхняя панель (можно сделать общей для всех экранов) -->
+    <top>
+        <HBox prefHeight="60" style="-fx-background-color: #2c2c2c; -fx-padding: 10 20;">
+            <Label text="Move Arm" style="-fx-text-fill: white; -fx-font-size: 22px; -fx-font-weight: bold;"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Label fx:id="userLabel" text="Пользователь: guest" style="-fx-text-fill: #ccc;"/>
+        </HBox>
+    </top>
+
+    <!-- Вот это и есть главный РЕГИОН -->
+    <center>
+        <StackPane fx:id="contentArea" 
+                   style="-fx-background-color: #1f1f1f;"/>   <!-- цвет очень важен! -->
+    </center>
+
+</BorderPane>
