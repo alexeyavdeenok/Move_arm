@@ -11,8 +11,6 @@ import com.example.move_arm.service.AnimationService;
 import com.example.move_arm.service.GameService;
 import com.example.move_arm.service.LevelGeneratorService;
 import com.example.move_arm.service.SettingsService;
-import com.example.move_arm.service.WeightedGridGenerator;
-import com.example.move_arm.service.WeightedGridGenerator2;
 import com.example.move_arm.ui.SceneManager;
 import com.example.move_arm.util.AppLogger;
 
@@ -60,8 +58,6 @@ public class GameController {
     private final GameService gameService = GameService.getInstance();
     private AudioClip hoverSound;
     private final LevelGeneratorService levelGenerator = LevelGeneratorService.getInstance();
-    private final WeightedGridGenerator levelGenerator1 = new WeightedGridGenerator();
-    private final WeightedGridGenerator2 levelGenerator2 = new WeightedGridGenerator2();
     private double[] lastCircle = new double[2];
     private boolean hasLastCircle = false;
 
@@ -229,7 +225,7 @@ public class GameController {
             activePoints.add(lastCircle);
         }
         // ПОЛУЧАЕМ КООРДИНАТЫ ИЗ ГЕНЕРАТОРА
-        double[] coords = levelGenerator1.nextPoint(paneWidth, paneHeight, radius, activePoints);
+        double[] coords = levelGenerator.nextPoint(paneWidth, paneHeight, radius, activePoints);
         double x = coords[0];
         double y = coords[1];
     
