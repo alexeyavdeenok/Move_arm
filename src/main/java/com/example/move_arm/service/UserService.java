@@ -8,6 +8,7 @@ import com.example.move_arm.model.User;
 
 public class UserService {
 
+    private static final UserService INSTANCE = new UserService();
     private final UserDao userDao = new UserDao();
     private final DatabaseManager dbManager = DatabaseManager.getInstance();
 
@@ -15,6 +16,10 @@ public class UserService {
 
     public UserService() {
         restoreLastUser();
+    }
+    
+    public static UserService getInstance() {
+        return INSTANCE;
     }
 
     private void restoreLastUser() {

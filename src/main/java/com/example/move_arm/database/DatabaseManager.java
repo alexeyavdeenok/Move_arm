@@ -123,6 +123,32 @@ public class DatabaseManager {
                 FOREIGN KEY(result_id) REFERENCES game_results(id)
                 );
                 """);
+            
+            s.execute("""
+                    CREATE TABLE IF NOT EXISTS global_settings (
+                    user_id INTEGER PRIMARY KEY,
+                    animation_type TEXT NOT NULL,
+                    FOREIGN KEY(user_id) REFERENCES users(id)
+                    );
+                    """);
+            s.execute("""
+                    CREATE TABLE IF NOT EXISTS hover_settings (
+                    user_id INTEGER PRIMARY KEY,
+                    duration_seconds INTEGER NOT NULL,
+                    radius INTEGER NOT NULL,
+                    seed INTEGER NOT NULL,
+                    max_circles_count INTEGER NOT NULL,
+                    FOREIGN KEY(user_id) REFERENCES users(id)
+                    );
+                    """);
+            s.execute("""
+                    CREATE TABLE IF NOT EXISTS hold_settings (
+                    user_id INTEGER PRIMARY KEY,
+                    radius INTEGER NOT NULL,
+                    hold_time_ms INTEGER NOT NULL,
+                    FOREIGN KEY(user_id) REFERENCES users(id)
+                    );
+                    """);
 
         } catch (Exception e) {
             throw new RuntimeException("Не удалось инициализировать схему БД", e);

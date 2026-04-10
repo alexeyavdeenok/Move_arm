@@ -1,41 +1,70 @@
 package com.example.move_arm.service;
 
+import com.example.move_arm.database.GlobalSettingsDao;
+import com.example.move_arm.database.HoldSettingsDao;
+import com.example.move_arm.database.HoverSettingsDao;
+import com.example.move_arm.model.AnimationType;
+import com.example.move_arm.model.settings.GlobalSettings;
+import com.example.move_arm.model.settings.HoldGameSettings;
 import com.example.move_arm.model.settings.HoverGameSettings;
-// import com.example.move_arm.model.settings.ClickGameSettings; // В будущем
 
 public class SettingsService {
 
     private static final SettingsService INSTANCE = new SettingsService();
 
-    // Имитация базы данных (кэш настроек)
+    private final GlobalSettingsDao globalDao = new GlobalSettingsDao();
+    private final HoverSettingsDao hoverDao = new HoverSettingsDao();
+    private final HoldSettingsDao holdDao = new HoldSettingsDao();
+
+    private GlobalSettings globalSettings;
     private HoverGameSettings hoverSettings;
-    
-    // private ClickGameSettings clickSettings; // В будущем
+    private HoldGameSettings holdSettings;
+
+    private long getCurrentUserId() {
+        return UserService.getInstance().getCurrentUser().getId();
+    }
 
     private SettingsService() {
-        // При первом запуске создаем дефолтные настройки
-        // В будущем здесь будет: hoverRepository.findById(1).orElse(new HoverGameSettings());
-        this.hoverSettings = new HoverGameSettings();
+        loadAll();
+    }
+
+    public void reload() {
+        loadAll();
     }
 
     public static SettingsService getInstance() {
         return INSTANCE;
     }
 
-    // === Методы доступа ===
+    private void loadAll() {
+        globalSettings = globalDao.load(getCurrentUserId());
+        hoverSettings = hoverDao.load(getCurrentUserId());
+        holdSettings = holdDao.load(getCurrentUserId());
+    }
 
-    /**
-     * Получить настройки для игры Hover (Move Arm).
-     * Возвращает конкретную сущность, а не абстракцию.
-     */
+    // ===== GET =====
+
     public HoverGameSettings getHoverSettings() {
         return hoverSettings;
     }
 
-    // Метод для сохранения (в будущем commit transaction)
-    public void saveHoverSettings(HoverGameSettings newSettings) {
-        this.hoverSettings = newSettings;
-        // repo.save(newSettings);
-        System.out.println("SettingsService: Настройки Hover обновлены");
+    public HoldGameSettings getHoldSettings() {
+        return holdSettings;
+    }
+
+    public AnimationType getAnimationType() {
+        return globalSettings.getAnimationType();
+    }
+    
+    public void setAnimationType(AnimationType type) {
+        globalSettings.setAnimationType(type);
+    }
+
+    // ===== SAVE =====
+
+    public void saveAll() {
+        globalDao.save(getCurrentUserId(), globalSettings);
+        hoverDao.save(getCurrentUserId(), hoverSettings);
+        holdDao.save(getCurrentUserId(), holdSettings);
     }
 }
