@@ -2,13 +2,18 @@ package com.example.move_arm.service;
 
 import java.util.List;
 
-import com.example.move_arm.model.*;
+import com.example.move_arm.model.ClickData;
+import com.example.move_arm.model.GameResult;
+import com.example.move_arm.model.GameType;
+import com.example.move_arm.model.HoldAttempt;
+import com.example.move_arm.model.Statistics;
+import com.example.move_arm.model.User;
 
 public class GameService {
 
     private static final GameService INSTANCE = new GameService();
 
-    private final UserService userService = new UserService();
+    private final UserService userService = UserService.getInstance();
     private final GameTypeService gameTypeService = new GameTypeService();
     private final ClickGameService clickGameService = new ClickGameService();
     private final HoldGameService holdGameService = new HoldGameService();

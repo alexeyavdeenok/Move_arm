@@ -1,10 +1,10 @@
 package com.example.move_arm.comtroller;
 
-import com.example.move_arm.ui.SceneManager;
 import com.example.move_arm.model.AnimationType;
 import com.example.move_arm.model.settings.HoverGameSettings;
 import com.example.move_arm.service.AnimationService;
 import com.example.move_arm.service.SettingsService;
+import com.example.move_arm.ui.SceneManager;
 
 import javafx.animation.PauseTransition;
 import javafx.fxml.FXML;
@@ -26,6 +26,7 @@ public class SettingsController {
     @FXML private ComboBox<Integer> seedComboBox;
 
     private SceneManager sceneManager;
+    private SettingsService settingsService = SettingsService.getInstance();
     private HoverGameSettings settings;
 
     public void setSceneManager(SceneManager manager) {
@@ -65,7 +66,7 @@ public class SettingsController {
         // 🎬 АНИМАЦИИ
         // =========================
         animationTypeComboBox.getItems().setAll(AnimationType.values());
-        animationTypeComboBox.setValue(settings.getAnimationType());
+        animationTypeComboBox.setValue(settingsService.getAnimationType());
 
         // =========================
         // 🎯 ЦЕНТРИРОВАНИЕ PREVIEW
@@ -129,9 +130,9 @@ public class SettingsController {
     private void handleSaveAndExit() {
         settings.setRadius((int) radiusSlider.getValue());
         settings.setSeed(seedComboBox.getValue());
-        settings.setAnimationType(animationTypeComboBox.getValue());
+        settingsService.setAnimationType(animationTypeComboBox.getValue());
 
-        SettingsService.getInstance().saveHoverSettings(settings);
+        settingsService.saveAll();
         sceneManager.showMenu();
     }
 

@@ -2,7 +2,6 @@
 package com.example.move_arm.service;
 
 import com.example.move_arm.model.AnimationType;
-import com.example.move_arm.model.settings.HoverGameSettings;
 
 import javafx.scene.layout.Pane;
 import javafx.scene.shape.Circle;
@@ -13,7 +12,7 @@ public class AnimationService {
      * Воспроизводит анимацию уничтожения круга в соответствии с настройками
      */
     public static void playDestructionAnimation(Pane root, Circle circle, Runnable onFinish) {
-        HoverGameSettings settings = SettingsService.getInstance().getHoverSettings();
+        SettingsService settings = SettingsService.getInstance();
         AnimationType animationType = settings.getAnimationType();
         
         playAnimationByType(animationType, root, circle, onFinish);

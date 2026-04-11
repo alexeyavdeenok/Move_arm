@@ -16,6 +16,7 @@ import com.example.move_arm.util.AppLogger;
 
 import javafx.animation.KeyFrame;
 import javafx.animation.Timeline;
+import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
 import javafx.beans.binding.BooleanBinding;
 import javafx.fxml.FXML;
@@ -84,6 +85,7 @@ public class GameController {
         } catch (Exception e) {
             hoverSound = null;
         }
+        hoverSound = null;
 
         // Попробуем сразу получить SceneManager из singleton, если он уже инициализирован
         try {
@@ -128,19 +130,24 @@ public class GameController {
     }
 
     public void startGame() {
-        if (gameActive) return;
+        AppLogger.info("=== GameController.startGame() ВЫЗВАН ===");
+        AppLogger.info("Текущие размеры gameRoot: " + gameRoot.getWidth() + " x " + gameRoot.getHeight());
+
+        if (gameActive) {
+            AppLogger.warn("Игра уже активна, выходим");
+            return;
+        }
+
+        resetGameState();
 
         settings = SettingsService.getInstance().getHoverSettings();
-        int userSeed = settings.getSeed();
-        levelGenerator.initialize(userSeed);
+        levelGenerator.initialize(settings.getSeed());
 
         gameActive = true;
         score = 0;
         activeCircles = 0;
         hasLastCircle = false;
         clickData.clear();
-
-        gameService.clear();
 
         remainingTime = settings.getDurationSeconds();
         scoreLabel.setText("Очки: " + score);
@@ -150,13 +157,29 @@ public class GameController {
         gameRoot.getChildren().clear();
         gameStartTimeNs = System.nanoTime();
 
-        while (activeCircles < settings.getMaxCirclesCount()) {
-            spawnRandomTarget();
+        // === ОСНОВНОЕ ИСПРАВЛЕНИЕ ===
+        if (gameRoot.getWidth() > 100 && gameRoot.getHeight() > 100) {
+            AppLogger.info("Размеры уже готовы — начинаем спавн");
+            spawnInitialTargets();
+            startTimer();
+        } else {
+            AppLogger.info("Размеры ещё нулевые. Ждём 100мс и запускаем...");
+
+            // Задержка + запуск
+            Platform.runLater(() -> {
+                new java.util.Timer().schedule(new java.util.TimerTask() {
+                    @Override
+                    public void run() {
+                        Platform.runLater(() -> {
+                            AppLogger.info("После задержки размеры: " + gameRoot.getWidth() + " x " + gameRoot.getHeight());
+                            spawnInitialTargets();
+                            startTimer();
+                        });
+                    }
+                }, 100); // 100 миллисекунд
+            });
         }
-
-        startTimer();
     }
-
     private void startTimer() {
         if (timer != null) timer.stop();
 
@@ -294,6 +317,31 @@ public class GameController {
             mgr.startNewGame();
         } else {
             startGame();
+        }
+    }
+    private void resetGameState() {
+        gameActive = false;
+        score = 0;
+        activeCircles = 0;
+        hasLastCircle = false;
+        clickData.clear();
+
+        if (timer != null) {
+            timer.stop();
+            timer = null;
+        }
+
+        // Важно: очищаем визуальные элементы
+        if (gameRoot != null) {
+            gameRoot.getChildren().clear();
+        }
+
+        gameService.clear();
+    }
+
+    private void spawnInitialTargets() {
+        while (activeCircles < settings.getMaxCirclesCount() && gameActive) {
+            spawnRandomTarget();
         }
     }
 }
