@@ -1,0 +1,74 @@
+package com.example.move_arm.database;
+
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+
+import com.example.move_arm.model.settings.HoverGameSettings;
+
+public class HoverSettingsDao {
+
+    private final DatabaseManager db = DatabaseManager.getInstance();
+
+    public HoverGameSettings load(long userId) {
+
+        String sql = "SELECT * FROM hover_settings WHERE user_id = ?";
+
+        try (Connection c = db.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+
+            ps.setLong(1, userId);
+            ResultSet rs = ps.executeQuery();
+
+            if (rs.next()) {
+                HoverGameSettings s = new HoverGameSettings();
+
+                s.setDurationSeconds(rs.getInt("duration_seconds"));
+                s.setRadius(rs.getInt("radius"));
+                s.setSeed(rs.getInt("seed"));
+                s.setMaxCirclesCount(rs.getInt("max_circles_count"));
+
+                return s;
+            }
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+
+        return new HoverGameSettings(); // дефолт
+    }
+
+    public void save(long userId, HoverGameSettings settings) {
+
+        String sql = """
+            INSERT INTO hover_settings(
+                user_id,
+                duration_seconds,
+                radius,
+                seed,
+                max_circles_count
+            )
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(user_id) DO UPDATE SET
+                duration_seconds = excluded.duration_seconds,
+                radius = excluded.radius,
+                seed = excluded.seed,
+                max_circles_count = excluded.max_circles_count
+        """;
+
+        try (Connection c = db.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+
+            ps.setLong(1, userId);
+            ps.setInt(2, settings.getDurationSeconds());
+            ps.setInt(3, settings.getRadius());
+            ps.setInt(4, settings.getSeed());
+            ps.setInt(5, settings.getMaxCirclesCount());
+
+            ps.executeUpdate();
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+}

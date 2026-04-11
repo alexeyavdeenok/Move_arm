@@ -1,12 +1,13 @@
 package com.example.move_arm.comtroller;
 
-import com.example.move_arm.ui.SceneManager;
+import java.util.Objects;
+
 import com.example.move_arm.service.GameService;
+import com.example.move_arm.ui.SceneManager;
+
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
-
-import java.util.Objects;
 
 /**
  * Контроллер окна №3 — меню выбранной игры.
@@ -20,7 +21,7 @@ public class MenuController {
     @FXML private Button exitButton;
 
     private SceneManager sceneManager;
-    private GameService gameService = GameService.getInstance();
+    private final GameService gameService = GameService.getInstance();
     private String gameType;
 
     public void setSceneManager(SceneManager sm) {

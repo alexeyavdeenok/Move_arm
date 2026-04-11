@@ -1,8 +1,8 @@
-// src/main/java/com/example/move_arm/HelloApplication.java
 package com.example.move_arm.app;
 
-import com.example.move_arm.util.AppLogger;
 import com.example.move_arm.ui.SceneManager;
+import com.example.move_arm.util.AppLogger;
+
 import javafx.application.Application;
 import javafx.geometry.Rectangle2D;
 import javafx.stage.Screen;
@@ -19,34 +19,38 @@ public class HelloApplication extends Application {
     @Override
     public void start(Stage stage) {
         AppLogger.info("HelloApplication: start() - запуск JavaFX приложения");
-        System.out.println(getClass().getResource("/com/example/move_arm/css/dark-glow.css"));
+
         try {
-            // Инициализируем SceneManager
+            // 1. Инициализируем SceneManager
             SceneManager.init(stage);
 
-            // Показываем стартовую сцену
+            // 2. Загружаем главный контейнер с регионом (но пока не показываем окно)
+            SceneManager.get().showMainLayout();
+
+            // 3. Показываем начальный экран (логин)
             SceneManager.get().showStart();
 
+            // === Настройки окна ===
             stage.setTitle("Move Arm - Управление рукой");
             stage.setResizable(false);
-            Rectangle2D screen = Screen.getPrimary().getBounds(); // включает панель задач
+            stage.initStyle(StageStyle.UNDECORATED);
+
+            // Растягиваем на весь экран
+            Rectangle2D screen = Screen.getPrimary().getBounds();
             stage.setX(0);
             stage.setY(0);
             stage.setWidth(screen.getWidth());
             stage.setHeight(screen.getHeight());
-            stage.initStyle(StageStyle.UNDECORATED);
 
+            // Логирование событий
+            stage.setOnShowing(e -> AppLogger.info("HelloApplication: Окно показывается"));
+            stage.setOnShown(e -> AppLogger.info("HelloApplication: Окно показано"));
+            stage.setOnCloseRequest(e -> AppLogger.info("HelloApplication: Запрос на закрытие окна"));
 
-            // Логирование событий окна
-            stage.setOnShowing(event -> AppLogger.info("HelloApplication: Окно показывается"));
-            stage.setOnShown(event -> AppLogger.info("HelloApplication: Окно показано"));
-            stage.setOnCloseRequest(event -> {
-                AppLogger.info("HelloApplication: Запрос на закрытие окна");
-                // Можно сохранить статистику
-            });
-
+            // 4. Показываем окно
             stage.show();
-            AppLogger.info("HelloApplication: Приложение запущено и стартовое окно отображено");
+
+            AppLogger.info("HelloApplication: Приложение запущено успешно (начальный экран: Start)");
 
         } catch (Exception e) {
             AppLogger.error("HelloApplication: Критическая ошибка при запуске", e);

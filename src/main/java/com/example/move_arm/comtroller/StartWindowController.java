@@ -1,15 +1,21 @@
 package com.example.move_arm.comtroller;
 
-import com.example.move_arm.ui.SceneManager;
-import com.example.move_arm.database.UserDao;
-import com.example.move_arm.model.User;
-import com.example.move_arm.service.GameService;
-import javafx.application.Platform;
-import javafx.fxml.FXML;
-import javafx.scene.control.*;
-
 import java.util.List;
 import java.util.Optional;
+
+import com.example.move_arm.database.UserDao;
+import com.example.move_arm.model.User;
+import com.example.move_arm.service.SettingsService;
+import com.example.move_arm.service.UserService;
+import com.example.move_arm.ui.SceneManager;
+
+import javafx.application.Platform;
+import javafx.fxml.FXML;
+import javafx.scene.control.Button;
+import javafx.scene.control.Hyperlink;
+import javafx.scene.control.Label;
+import javafx.scene.control.ListView;
+import javafx.scene.control.TextField;
 
 public class StartWindowController {
 
@@ -27,7 +33,8 @@ public class StartWindowController {
 
     private SceneManager sceneManager;
     private final UserDao userDao = new UserDao();
-    private final GameService gameService = GameService.getInstance();
+    private final SettingsService settingsService = SettingsService.getInstance();
+    private final UserService userService = UserService.getInstance();
 
     public void setSceneManager(SceneManager sm) {
         this.sceneManager = sm;
@@ -94,7 +101,8 @@ public class StartWindowController {
             return;
         }
 
-        gameService.setCurrentUser(u.get());
+        userService.setCurrentUser(u.get());
+        settingsService.reload();
         sceneManager.clearCache();
         sceneManager.showSelection();
     }
@@ -120,7 +128,8 @@ public class StartWindowController {
     private void handlePlayAsGuest() {
         User guest = userDao.findByUsername("guest")
                 .orElseGet(() -> userDao.createUser("guest"));
-        gameService.setCurrentUser(guest);
+        userService.setCurrentUser(guest);
+        settingsService.reload();
         sceneManager.clearCache();
         sceneManager.showSelection();
     }
