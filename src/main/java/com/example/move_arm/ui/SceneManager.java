@@ -4,7 +4,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import com.example.move_arm.comtroller.GameController;
-import com.example.move_arm.comtroller.HoldGameController;
 import com.example.move_arm.comtroller.MenuController;
 import com.example.move_arm.comtroller.MoreResultsController;
 import com.example.move_arm.comtroller.ResultsController;
@@ -12,7 +11,9 @@ import com.example.move_arm.comtroller.SelectionController;
 import com.example.move_arm.comtroller.SettingsController;
 import com.example.move_arm.comtroller.StartWindowController;
 import com.example.move_arm.comtroller.StatisticsController;
+import com.example.move_arm.ui.presenter.HoldGamePresenter;
 import com.example.move_arm.ui.presenter.HoverGamePresenter;
+import com.example.move_arm.ui.view.HoldGameView;
 import com.example.move_arm.ui.view.HoverGameView;
 import com.example.move_arm.util.AppLogger;
 
@@ -118,8 +119,6 @@ public class SceneManager {
 
         if (controller instanceof GameController gc) {
             gc.setSceneManager(this);
-        } else if (controller instanceof HoldGameController hgc) {
-            hgc.setSceneManager(this);
         } else if (controller instanceof MenuController mc) {
             mc.setSceneManager(this);
         } else if (controller instanceof ResultsController rc) {
@@ -197,10 +196,13 @@ public class SceneManager {
         removeFromCache("holdGame");
         loadIntoRegion("holdGame", "/com/example/move_arm/fxml/hold-game-view.fxml",
             ctrl -> {
-                if (ctrl instanceof HoldGameController hgc) {
+                if (ctrl instanceof HoldGameView view) {
                     // Двойной runLater — надёжно даёт время на layout
                     Platform.runLater(() -> {
-                        Platform.runLater(hgc::startGame);
+                        Platform.runLater(() -> {
+                            HoldGamePresenter presenter = new HoldGamePresenter(view, this);
+                            presenter.startNewGame();
+                        });
                     });
                 }
             });

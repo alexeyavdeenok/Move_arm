@@ -37,9 +37,26 @@ public class SettingsService {
     }
 
     private void loadAll() {
-        globalSettings = globalDao.load(getCurrentUserId());
-        hoverSettings = hoverDao.load(getCurrentUserId());
-        holdSettings = holdDao.load(getCurrentUserId());
+        long userId = getCurrentUserId();
+        ensureDefaultsSaved(userId);
+
+        globalSettings = globalDao.load(userId);
+        hoverSettings = hoverDao.load(userId);
+        holdSettings = holdDao.load(userId);
+    }
+
+    public void ensureDefaultsSaved(long userId) {
+        if (!globalDao.exists(userId)) {
+            globalDao.save(userId, new GlobalSettings());
+        }
+
+        if (!hoverDao.exists(userId)) {
+            hoverDao.save(userId, new HoverGameSettings());
+        }
+
+        if (!holdDao.exists(userId)) {
+            holdDao.save(userId, new HoldGameSettings());
+        }
     }
 
     // ===== GET =====

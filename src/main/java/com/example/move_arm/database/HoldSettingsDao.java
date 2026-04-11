@@ -63,4 +63,20 @@ public class HoldSettingsDao {
             throw new RuntimeException(e);
         }
     }
+
+    public boolean exists(long userId) {
+
+        String sql = "SELECT 1 FROM hold_settings WHERE user_id = ?";
+
+        try (Connection c = db.getConnection();
+             PreparedStatement ps = c.prepareStatement(sql)) {
+
+            ps.setLong(1, userId);
+            ResultSet rs = ps.executeQuery();
+            return rs.next();
+
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
 }

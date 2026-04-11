@@ -119,7 +119,8 @@ public class StartWindowController {
             return;
         }
 
-        userDao.createUser(username);
+        User createdUser = userDao.createUser(username);
+        settingsService.ensureDefaultsSaved(createdUser.getId());
         refreshUsersList();
         setMessage("Пользователь создан", false);
         configureFormMode(false);

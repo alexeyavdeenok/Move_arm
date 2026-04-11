@@ -1,10 +1,10 @@
 package com.example.move_arm.model.settings;
 
 public abstract class BaseSettings {
-    private int durationSeconds;
-    private int maxCirclesCount;
-    private int radius;
-    private int seed;
+    private int durationSeconds = 30;
+    private int maxCirclesCount = 3;
+    private int radius = 50;
+    private int seed = 0;
 
     public BaseSettings(){}
 
