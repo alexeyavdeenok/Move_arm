@@ -33,7 +33,13 @@ public class MenuController {
 
         // Настройки игры
         settingsButton.setOnAction(e -> {
-            sceneManager.showSettings();
+            gameType = gameService.getCurrentGameTypeString();
+            if(Objects.equals(gameType, "hover")){
+                sceneManager.showHoverSettings();
+            }
+            else if(Objects.equals(gameType, "hold")){
+                sceneManager.showHoldSettings();
+            }
         });
 
         // Статистика
