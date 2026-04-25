@@ -3,12 +3,12 @@ package com.example.move_arm.ui;
 import java.util.HashMap;
 import java.util.Map;
 
+import com.example.move_arm.comtroller.BaseSettingsController;
 import com.example.move_arm.comtroller.GameController;
 import com.example.move_arm.comtroller.MenuController;
 import com.example.move_arm.comtroller.MoreResultsController;
 import com.example.move_arm.comtroller.ResultsController;
 import com.example.move_arm.comtroller.SelectionController;
-import com.example.move_arm.comtroller.SettingsController;
 import com.example.move_arm.comtroller.StartWindowController;
 import com.example.move_arm.comtroller.StatisticsController;
 import com.example.move_arm.ui.presenter.HoldGamePresenter;
@@ -37,7 +37,8 @@ public class SceneManager {
     public static final String GAME = "game";
     public static final String RESULTS = "results";
     public static final String MORERESULTS = "moreresults";
-    public static final String SETTINGS = "settings";
+    public static final String HOVER_SETTINGS = "hover_settings";
+    public static final String HOLD_SETTINGS = "hold_settings";
     public static final String SELECTION = "selection";
     public static final String MENU = "menu";
     public static final String STATISTICS = "statistics";
@@ -129,7 +130,7 @@ public class SceneManager {
             sc.setSceneManager(this);
         } else if (controller instanceof SelectionController sel) {
             sel.setSceneManager(this);
-        } else if (controller instanceof SettingsController set) {
+        } else if (controller instanceof BaseSettingsController set) {
             set.setSceneManager(this);
         } else if (controller instanceof StartWindowController swc) {
             swc.setSceneManager(this);
@@ -155,8 +156,14 @@ public class SceneManager {
         loadIntoRegion(STATISTICS, "/com/example/move_arm/fxml/hover-statistics-view.fxml", null);
     }
 
-    public void showSettings() {
-        loadIntoRegion(SETTINGS, "/com/example/move_arm/fxml/settings-view.fxml", null);
+    public void showHoverSettings() {
+        removeFromCache(HOVER_SETTINGS);
+        loadIntoRegion(HOVER_SETTINGS, "/com/example/move_arm/fxml/hover-settings.fxml", null);
+    }
+
+    public void showHoldSettings() {
+        removeFromCache(HOLD_SETTINGS);
+        loadIntoRegion(HOLD_SETTINGS, "/com/example/move_arm/fxml/hold-settings.fxml", null);
     }
 
     public void showResults() {
