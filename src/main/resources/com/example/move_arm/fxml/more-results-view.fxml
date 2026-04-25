@@ -15,6 +15,7 @@
           AnchorPane.leftAnchor="10" AnchorPane.rightAnchor="10">
 
         <Label text="Средние значения" styleClass="subtitle-label"/>
+        <Label fx:id="modeLabel" text="" styleClass="info-label"/>
 
         <GridPane fx:id="summaryTable"
                   hgap="30" vgap="10"

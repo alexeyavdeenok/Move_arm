@@ -80,6 +80,39 @@ public class HoldAttemptDao {
         }
     }
     /**
+     * Возвращает максимальное количество успешных удержаний для пользователя и радиуса.
+     *
+     * @param userId ID пользователя.
+     * @param radius Радиус мишени.
+     * @return Максимальное число успешных попыток (score) по всем играм.
+     */
+    public int getMaxSuccessForUserAndRadius(int userId, int radius) {
+        String sql = """
+            SELECT MAX(success_count) AS record FROM (
+                SELECT COUNT(*) AS success_count
+                FROM holds h
+                JOIN game_results g ON h.result_id = g.id
+                WHERE g.user_id = ? AND g.radius = ? AND h.success = 1
+                GROUP BY h.result_id
+            )
+            """;
+        try (Connection conn = dbManager.getConnection();
+             PreparedStatement ps = conn.prepareStatement(sql)) {
+            ps.setInt(1, userId);
+            ps.setInt(2, radius);
+            try (ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("record");
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("HoldAttemptDao Error: Не удалось получить рекорд для userId=" + userId + ", radius=" + radius);
+            e.printStackTrace();
+        }
+        return 0;
+    }
+
+    /**
      * Считывает все попытки удержания для конкретной игры из базы данных.
      *
      * @param resultId ID игры из таблицы game_results.

@@ -3,9 +3,13 @@ package com.example.move_arm.comtroller;
 import com.example.move_arm.util.AppLogger;
 import com.example.move_arm.ui.SceneManager;
 import com.example.move_arm.database.ClickDao;
+import com.example.move_arm.database.HoldAttemptDao;
 import com.example.move_arm.model.ClickData;
 import com.example.move_arm.model.GameResult;
+import com.example.move_arm.model.HoldAttempt;
+import com.example.move_arm.model.Statistics;
 import com.example.move_arm.service.GameService;
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.chart.LineChart;
 import javafx.scene.chart.NumberAxis;
@@ -22,10 +26,12 @@ public class MoreResultsController {
     @FXML private LineChart<Number, Number> movementSpeedChart;
     @FXML private LineChart<Number, Number> normalizedDeviationChart;
     @FXML private GridPane summaryTable;
+    @FXML private Label modeLabel;
 
     private SceneManager sceneManager;
     private final GameService gameService = GameService.getInstance();
     private final ClickDao clickDao = new ClickDao();
+    private final HoldAttemptDao holdAttemptDao = new HoldAttemptDao();
 
     public void setSceneManager(SceneManager manager) { this.sceneManager = manager; }
 
@@ -50,6 +56,19 @@ public class MoreResultsController {
         }
 
         GameResult last = results.get(0);
+
+        if ("hold".equals(gameService.getCurrentGameTypeString())) {
+            modeLabel.setText("Режим: Hold");
+            showHoldResults(last);
+        } else {
+            modeLabel.setText("Режим: Hover");
+            showHoverResults(last);
+        }
+    }
+
+    // ========================= HOVER RESULTS =========================
+
+    private void showHoverResults(GameResult last) {
         int resultId = last.getId();
 
         List<ClickData> clicks = clickDao.readClicksForResult(resultId);
@@ -58,13 +77,12 @@ public class MoreResultsController {
             return;
         }
 
-        int currentRadius = clicks.getFirst().getRadius(); // допустим, радиус последнего клика
+        int currentRadius = clicks.getFirst().getRadius();
         int bestScore = clickDao.getMaxClicksForUserAndRadius(last.getUserId(), currentRadius);
 
         summaryTable.add(new Label("Рекорд для этого радиуса:"), 0, 4);
         summaryTable.add(new Label(String.valueOf(bestScore)), 1, 4);
 
-        // Таблица средних значений (из сохранённого GameResult)
         summaryTable.add(new Label("Средний интервал кликов (мс):"), 0, 0);
         summaryTable.add(new Label(String.format("%.2f", last.getAvgIntervalMs())), 1, 0);
 
@@ -76,8 +94,6 @@ public class MoreResultsController {
 
         summaryTable.add(new Label("Процент попаданий (%):"), 0, 3);
         summaryTable.add(new Label(String.format("%.2f", last.getHitRate())), 1, 3);
-
-        // === Построение графиков с реальными данными ===
 
         // 1) Интервалы между кликами (ms)
         XYChart.Series<Number, Number> intervalsSeries = new XYChart.Series<>();
@@ -103,7 +119,7 @@ public class MoreResultsController {
         ((NumberAxis)cursorDistanceChart.getXAxis()).setLabel("Номер клика");
         ((NumberAxis)cursorDistanceChart.getYAxis()).setLabel("Расстояние (px)");
 
-        // 3) Скорость (px / ms): расстояние / интервал
+        // 3) Скорость (px / ms)
         XYChart.Series<Number, Number> speedSeries = new XYChart.Series<>();
         speedSeries.setName("Скорость (px/ms)");
         for (int i = 1; i < clicks.size(); i++) {
@@ -116,7 +132,7 @@ public class MoreResultsController {
         ((NumberAxis)movementSpeedChart.getXAxis()).setLabel("Номер клика");
         ((NumberAxis)movementSpeedChart.getYAxis()).setLabel("Скорость (px/ms)");
 
-        // 4) Нормализованное отклонение (если у тебя radius есть)
+        // 4) Нормализованное отклонение
         XYChart.Series<Number, Number> normSeries = new XYChart.Series<>();
         normSeries.setName("Нормализованное отклонение");
         for (int i = 0; i < clicks.size(); i++) {
@@ -130,6 +146,109 @@ public class MoreResultsController {
         ((NumberAxis)normalizedDeviationChart.getYAxis()).setLabel("Нормализованное отклонение");
     }
 
+    // ========================= HOLD RESULTS =========================
+
+    private void showHoldResults(GameResult last) {
+        int resultId = last.getId();
+
+        List<HoldAttempt> attempts = holdAttemptDao.readAttemptsForResult(resultId);
+        if (attempts == null || attempts.isEmpty()) {
+            summaryTable.add(new Label("Нет попыток для этого результата"), 0, 0);
+            return;
+        }
+
+        int currentRadius = last.getRadius();
+        int bestScore = holdAttemptDao.getMaxSuccessForUserAndRadius(last.getUserId(), currentRadius);
+        long successCount = attempts.stream().filter(HoldAttempt::isSuccess).count();
+        double avgHoldMs = Statistics.getAverageHoldDurationMs(attempts);
+        double maxHoldMs = Statistics.getMaxHoldDurationMs(attempts);
+        double avgIntervalMs = last.getAvgIntervalMs();
+        double successRate = Statistics.getHoldSuccessRatePercent(attempts);
+
+        // Summary table
+        summaryTable.add(new Label("Рекорд для этого радиуса:"), 0, 0);
+        summaryTable.add(new Label(String.valueOf(bestScore)), 1, 0);
+
+        summaryTable.add(new Label("Успешных удержаний:"), 0, 1);
+        summaryTable.add(new Label(String.valueOf(successCount) + " / " + attempts.size()), 1, 1);
+
+        summaryTable.add(new Label("Процент успеха (%):"), 0, 2);
+        summaryTable.add(new Label(String.format("%.2f", successRate)), 1, 2);
+
+        summaryTable.add(new Label("Среднее время удержания (мс):"), 0, 3);
+        summaryTable.add(new Label(String.format("%.2f", avgHoldMs)), 1, 3);
+
+        summaryTable.add(new Label("Макс. время удержания (мс):"), 0, 4);
+        summaryTable.add(new Label(String.format("%.2f", maxHoldMs)), 1, 4);
+
+        summaryTable.add(new Label("Средний интервал между попытками (мс):"), 0, 5);
+        summaryTable.add(new Label(String.format("%.2f", avgIntervalMs)), 1, 5);
+
+        // 1) Время удержания по попыткам (цвет = успех/срыв)
+        XYChart.Series<Number, Number> holdTimeSeries = new XYChart.Series<>();
+        holdTimeSeries.setName("Время удержания (мс)");
+        for (int i = 0; i < attempts.size(); i++) {
+            holdTimeSeries.getData().add(new XYChart.Data<>(i + 1, attempts.get(i).getActualHoldMs()));
+        }
+        clickIntervalsChart.getData().add(holdTimeSeries);
+        ((NumberAxis)clickIntervalsChart.getXAxis()).setLabel("Номер попытки");
+        ((NumberAxis)clickIntervalsChart.getYAxis()).setLabel("Время удержания (мс)");
+        Platform.runLater(() -> styleHoldChartPoints(clickIntervalsChart, attempts, "#2ecc71", "#e74c3c"));
+
+        // 2) Интервалы между попытками (мс)
+        XYChart.Series<Number, Number> intervalSeries = new XYChart.Series<>();
+        intervalSeries.setName("Интервал (мс)");
+        for (int i = 1; i < attempts.size(); i++) {
+            long prevEnd = attempts.get(i - 1).getEndTimeNs();
+            long currStart = attempts.get(i).getStartTimeNs();
+            double intervalMs = (currStart - prevEnd) / 1_000_000.0;
+            intervalSeries.getData().add(new XYChart.Data<>(i, intervalMs));
+        }
+        cursorDistanceChart.getData().add(intervalSeries);
+        ((NumberAxis)cursorDistanceChart.getXAxis()).setLabel("Номер попытки");
+        ((NumberAxis)cursorDistanceChart.getYAxis()).setLabel("Интервал между попытками (мс)");
+
+        // 3) Успех / неуспех (1 / 0)
+        XYChart.Series<Number, Number> successSeries = new XYChart.Series<>();
+        successSeries.setName("Успех (1 = да, 0 = нет)");
+        for (int i = 0; i < attempts.size(); i++) {
+            int val = attempts.get(i).isSuccess() ? 1 : 0;
+            successSeries.getData().add(new XYChart.Data<>(i + 1, val));
+        }
+        movementSpeedChart.getData().add(successSeries);
+        ((NumberAxis)movementSpeedChart.getXAxis()).setLabel("Номер попытки");
+        ((NumberAxis)movementSpeedChart.getYAxis()).setLabel("Успех");
+        Platform.runLater(() -> styleHoldChartPoints(movementSpeedChart, attempts, "#2ecc71", "#e74c3c"));
+
+        // 4) Накопленный процент успешных попыток
+        XYChart.Series<Number, Number> cumulativeSeries = new XYChart.Series<>();
+        cumulativeSeries.setName("Накопленный % успеха");
+        long cumSuccess = 0;
+        for (int i = 0; i < attempts.size(); i++) {
+            if (attempts.get(i).isSuccess()) cumSuccess++;
+            double pct = (cumSuccess * 100.0) / (i + 1);
+            cumulativeSeries.getData().add(new XYChart.Data<>(i + 1, pct));
+        }
+        normalizedDeviationChart.getData().add(cumulativeSeries);
+        ((NumberAxis)normalizedDeviationChart.getXAxis()).setLabel("Номер попытки");
+        ((NumberAxis)normalizedDeviationChart.getYAxis()).setLabel("Накопленный % успеха");
+    }
+
+    private void styleHoldChartPoints(LineChart<Number, Number> chart, List<HoldAttempt> attempts, String successColor, String failColor) {
+        if (chart.getData().isEmpty()) return;
+        XYChart.Series<Number, Number> series = chart.getData().get(0);
+        if (series.getNode() != null) {
+            series.getNode().setStyle("-fx-stroke: #888888; -fx-stroke-width: 1px;");
+        }
+        for (int i = 0; i < series.getData().size() && i < attempts.size(); i++) {
+            XYChart.Data<Number, Number> data = series.getData().get(i);
+            String color = attempts.get(i).isSuccess() ? successColor : failColor;
+            if (data.getNode() != null) {
+                data.getNode().setStyle("-fx-background-color: " + color + ", white; -fx-background-radius: 4px;");
+            }
+        }
+    }
+
     @FXML
     private void handleToMenuButton() {
         gameService.clear();
@@ -140,3 +259,4 @@ public class MoreResultsController {
         }
     }
 }
+
