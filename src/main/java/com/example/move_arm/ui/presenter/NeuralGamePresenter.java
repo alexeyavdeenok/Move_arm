@@ -31,14 +31,17 @@ public class NeuralGamePresenter {
     private final SettingsService settingsService;
     private final SceneManager sceneManager;
     private final NeuralTripletGenerator generator;
-    private final int radius;
+
+    private final int radius = 40;                    // фиксированный радиус
 
     private HoverGameSettings settings;
     private Timeline timer;
+
     private long gameStartTimeNs;
     private int score;
     private int remainingTime;
     private boolean gameActive;
+
     private int lastHitCell = -1;
 
     // Буфер данных для БД
@@ -53,7 +56,6 @@ public class NeuralGamePresenter {
         this.gameService = GameService.getInstance();
         this.settingsService = SettingsService.getInstance();
         this.generator = new NeuralTripletGenerator();
-        this.radius = 40;
 
         view.setOnNeuralTargetHit(this::onNeuralTargetHit);
         view.setOnToMenu(this::goToMenu);
@@ -62,16 +64,13 @@ public class NeuralGamePresenter {
     }
 
     public void startNewGame() {
-        AppLogger.info("NeuralGamePresenter: startNewGame()");
-
+        AppLogger.info("NeuralGamePresenter: startNewGame() — запуск Neural режима");
         settings = settingsService.getHoverSettings();
         resetGameState();
-
         view.start();
         view.setScore(0);
         view.setTime(settings.getDurationSeconds());
         view.setUserName(gameService.getCurrentUser().getUsername());
-
         gameStartTimeNs = System.nanoTime();
     }
 
@@ -83,11 +82,14 @@ public class NeuralGamePresenter {
         gameBuffer.clear();
         tripletCounter = 0;
         generator.reset();
+
         if (timer != null) {
             timer.stop();
             timer = null;
         }
+
         view.clearField();
+        AppLogger.info("NeuralGamePresenter: состояние сброшено");
     }
 
     private void onViewReady() {
@@ -96,58 +98,40 @@ public class NeuralGamePresenter {
         startTimer();
     }
 
-    /**
-     * Спавн начальной тройки: 3 цели сразу
-     */
     private void spawnInitialTriplet() {
         int cell1 = randomCell();
         int cell2 = randomCell(cell1);
-
         spawnCell(cell1);
         spawnCell(cell2);
-
         spawnThirdTarget(cell1, cell2);
     }
 
-    /**
-     * Спавн одной цели по ячейке
-     */
     private void spawnCell(int cell) {
         double[] xy = GridUtils.cellToXy(cell, view.getWidth(), view.getHeight());
         view.addTargetWithCell(xy[0], xy[1], this.radius, randomColor(), cell);
     }
 
-    /**
-     * Генерация третьей цели по двум активным
-     */
     private void spawnThirdTarget(int activeCell1, int activeCell2) {
         int newCell = generator.generateThirdCell(activeCell1, activeCell2,
                 view.getWidth(), view.getHeight());
         spawnCell(newCell);
     }
 
-    /**
-     * Обработка попадания — ключевой метод для RL
-     */
     private void onNeuralTargetHit(NeuralHitEvent event) {
         if (!gameActive) return;
 
         score++;
         view.setScore(score);
+
         int previousHitCell = lastHitCell;
 
-        // Фиксируем результат для генератора
         generator.onHit(event.cellIndex(), event.lifetimeNs());
 
-        // Получаем данные тройки
         TripletData data = generator.getLastData();
         if (data != null && data.hitIndex >= 0) {
-
-            // Вычисляем геометрию
             GeometryData geom = TripletGeometry.compute(
-                    data.t1Cell, data.t2Cell, data.t3Cell, data.hitIndex);
+                data.t1Cell, data.t2Cell, data.t3Cell, data.hitIndex);
 
-            // Заполняем DTO для БД
             TripletRecord rec = new TripletRecord();
             rec.tripletIndex = tripletCounter++;
             rec.t1Cell = data.t1Cell;
@@ -159,7 +143,6 @@ public class NeuralGamePresenter {
             rec.radius = this.radius;
             rec.screenWidth = (int) view.getWidth();
             rec.screenHeight = (int) view.getHeight();
-
             rec.centroidRow = geom.centroidRow;
             rec.centroidCol = geom.centroidCol;
             rec.t1Angle = geom.t1Angle;
@@ -173,11 +156,10 @@ public class NeuralGamePresenter {
 
             gameBuffer.add(rec);
         }
-        lastHitCell = event.cellIndex();
 
+        lastHitCell = event.cellIndex();
         generator.reset();
 
-        // Спавним новую цель — образует новую тройку с двумя оставшимися
         List<TargetCell> active = view.getActiveTargetsWithCells();
         if (active.size() >= 2) {
             spawnThirdTarget(active.get(0).cellIndex(), active.get(1).cellIndex());
@@ -186,50 +168,71 @@ public class NeuralGamePresenter {
 
     private void startTimer() {
         if (timer != null) timer.stop();
-
         timer = new Timeline(new KeyFrame(Duration.seconds(1), e -> {
             remainingTime--;
             view.setTime(remainingTime);
             if (remainingTime <= 0) endGame();
         }));
-
         timer.setCycleCount(settings.getDurationSeconds());
         timer.play();
     }
 
     private void endGame() {
         gameActive = false;
-        if (timer != null) timer.stop();
+        if (timer != null) {
+            timer.stop();
+            timer = null;
+        }
 
         saveGameData();
 
-        // TODO: RL обучение на эпизоде
-        // generator.trainOnEpisode(gameBuffer);
+        // Важно: помечаем текущий режим
+        gameService.setCurrentGameTypeToNeural();
 
+        AppLogger.info("NeuralGamePresenter: Игра завершена → показываем результаты");
         sceneManager.showResults();
     }
 
-    /**
-     * Сохраняем все тройки в БД
-     */
     private void saveGameData() {
         int userId = gameService.getCurrentUser().getId();
         long timestamp = System.currentTimeMillis() / 1000;
 
-        // Заполняем userId и timestamp для всех записей
         for (TripletRecord rec : gameBuffer) {
             rec.userId = userId;
             rec.timestamp = timestamp;
         }
 
-        // Batch-сохранение через GameService
         gameService.saveTripletsBatch(gameBuffer);
-
         AppLogger.info("NeuralGamePresenter: сохранено " + gameBuffer.size() + " троек");
     }
 
-    // ==================== Вспомогательное ====================
+    // ==================== Restart — ИСПРАВЛЕННЫЙ ====================
+    private void restartGame() {
+        AppLogger.info("NeuralGamePresenter: === РЕСТАРТ NEURAL ИГРЫ ===");
 
+        gameActive = false;
+        if (timer != null) {
+            timer.stop();
+            timer = null;
+        }
+
+        view.clearField();
+        gameBuffer.clear();
+        tripletCounter = 0;
+        lastHitCell = -1;
+        generator.reset();
+
+        // Запускаем заново
+        startNewGame();
+    }
+
+    private void goToMenu() {
+        gameActive = false;
+        if (timer != null) timer.stop();
+        sceneManager.showMenu();
+    }
+
+    // ==================== Вспомогательные методы ====================
     private int randomCell(int... exclude) {
         int cell;
         do {
@@ -246,20 +249,6 @@ public class NeuralGamePresenter {
     }
 
     private Color randomColor() {
-        return Color.rgb(
-                random.nextInt(256),
-                random.nextInt(256),
-                random.nextInt(256),
-                0.85);
-    }
-
-    private void goToMenu() {
-        gameActive = false;
-        if (timer != null) timer.stop();
-        sceneManager.showMenu();
-    }
-
-    private void restartGame() {
-        startNewGame();
+        return Color.rgb(random.nextInt(256), random.nextInt(256), random.nextInt(256), 0.85);
     }
 }

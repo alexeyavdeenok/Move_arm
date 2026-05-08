@@ -252,4 +252,19 @@ public class SceneManager {
             }
         });
     }
+    /**
+ * Показывает экран результатов специально для Neural-режима
+ */
+    public void showNeuralResults() {
+        AppLogger.info("SceneManager: Показываем результаты Neural игры");
+        removeFromCache(RESULTS);
+        
+        loadIntoRegion(RESULTS, "/com/example/move_arm/fxml/results-view.fxml", ctrl -> {
+            if (ctrl instanceof ResultsController rc) {
+                rc.setIsNeuralMode(true);           // ← Важно!
+                // Можно также явно установить тип
+                // rc.setGameType("neural");
+            }
+        });
+    }
 }
