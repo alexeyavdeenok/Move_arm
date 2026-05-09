@@ -12,9 +12,7 @@
     <!-- Верхняя панель -->
     <HBox fx:id="topPanel" spacing="18" alignment="CENTER_LEFT"
           AnchorPane.topAnchor="10" AnchorPane.leftAnchor="20" AnchorPane.rightAnchor="20">
-        <Label fx:id="scoreLabel" text="Очки: 0" styleClass="game-label"/>
-        <Label fx:id="timeLabel" text="Время: 0" styleClass="game-label"/>
-        <Label fx:id="userLabel" text="" styleClass="game-label"/>
+        
     </HBox>
 
     <!-- Игровое поле -->
